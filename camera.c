@@ -3,7 +3,7 @@
  * 
  * struggles of access to camera.
  * 
- * this program using v4l2 module,
+ * this program using v4l2(linux/videodev2.h library) module,
  * which is comes as builtin on linux kernel.
  * this program simply takes photograph from
  * camera and save it as jpeg file.
@@ -100,12 +100,12 @@ static int init_camera(int fd){
                 printf("cropping not supported (ignored)\n");
                 break;
             default:
-                printf("<VIDIOC_S_CROP> error:%d (errors ignored)\n",errno);
+                printf("VIDIOC_S_CROP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
                 break;
             }
         }
     } else {
-        printf("<VIDIOC_CROPCAP> error: (errors ignored)\n");
+        printf("VIDIOC_CROPCAP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
     }
 
     /*request FORMAT SETTİNGS */
@@ -230,7 +230,12 @@ int main(int argc, char **argv){
     
     init_mmap(fd);
     
-    ready_to_capture(fd);
+    char c;
+    do{
+    	ready_to_capture(fd);
+    	printf("do you want to re-take?(y-n):");
+    	scanf("%c",&c);
+    }while(c!='n');
     
     return 0;
 }
