@@ -77,11 +77,10 @@ static int init_camera(int fd){
     //request capabilities of device
     if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps) ) {
         if (EINVAL == errno) {
-            char * msg;
-            sprintf(msg,"%s is not V4L2 device\n",dev_name);
-            perror(msg);
+            fprintf(stdout,"%s is not a V4L2 device: err%d:%s\n",dev_name,errno,strerror(errno));
             return errno;
         } else {
+            fprintf(stdout,"query device capabilities err %d:%s",errno,strerror(errno) );
             perror("query device capabilities");
             return errno;
         }
@@ -97,15 +96,15 @@ static int init_camera(int fd){
         if (-1 == xioctl(fd, VIDIOC_S_CROP, &crop)) {
             switch (errno) {
             case EINVAL:
-                printf("cropping not supported (ignored)\n");
+                fprintf(stdout,"cropping not supported (ignored)\n");
                 break;
             default:
-                printf("VIDIOC_S_CROP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
+                fprintf(stdout,"VIDIOC_S_CROP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
                 break;
             }
         }
     } else {
-        printf("VIDIOC_CROPCAP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
+        fprintf(stdout,"VIDIOC_CROPCAP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
     }
 
     /*request FORMAT SETTİNGS */
@@ -193,10 +192,61 @@ int ready_to_capture(int fd)
     close(outfd);
     return 0;
 }
-
+void print_specs(){
+    printf( "Device Informations:\n"
+            "--------------------\n"
+            "  Driver: \"%s\"\n"
+            "  Card: \"%s\"\n"
+            "  Bus: \"%s\"\n"
+            "  Version: %d.%d\n"
+            "  Capabilities: %08x\n"
+            "--------------------\n",
+            caps.driver,
+            caps.card,
+            caps.bus_info,
+            (caps.version>>16)&&0xff,
+            (caps.version>>24)&&0xff,
+            caps.capabilities);
+}
+//stdouta göndermek için(ipc ile gui yazarık)
+//ama şu an hexadeciamal olarak dökii
+void dumpBuffer(){
+	//bufferı yazdırıyor									
+    int i=0;
+    printf("img data size:%d bytes\n",cam_buf.bytesused);
+    
+    for(i=0;i<cam_buf.bytesused;i++){
+    	//%02x prints integer as hex
+    	printf("%02x ", buffer[i]);
+    	if ((i+1)%1280 == 0) printf("\n");
+    	i++;
+    }
+    printf("\n");
+}
+int get_arg_opts(int argc,char **argv){
+	int i;
+	if(argc==1){
+           return -1;//let interpret as exit silently
+        }
+	for(i=1;i<argc;i++){
+	
+		if(argv[i][0]=='-'){
+			
+			switch(argv[i][1]){
+				case 'o': dumpBuffer();break;
+				case 'i': print_specs();break;
+                                case 'h': printf("%s [options]\n"
+                "-h :print this message\n"
+                "-i :device information\n"
+                "-o :dump img to stdout\n",argv[0]);break;
+			}
+		}
+	}
+        return 0;
+}
 int main(int argc, char **argv){
 	//try to open camera as read-write mode
-    printf("halilibo cam dump struggle\n");
+    printf("halilibo cam dump struggles\n");
     dev_name="/dev/video0";
     
     if( (fd = open(dev_name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
@@ -205,36 +255,18 @@ int main(int argc, char **argv){
         perror(msg);
         return fd;
     }
-
     init_camera(fd);
-    
-    char opt;
-    printf("do you want to see camera device information?(y-n)\n");
-    scanf("%c",&opt);
-    if(opt=='y'){
-        printf( "Device Informations:\n"
-                "--------------------\n"
-                "  Driver: \"%s\"\n"
-                "  Card: \"%s\"\n"
-                "  Bus: \"%s\"\n"
-                "  Version: %d.%d\n"
-                "  Capabilities: %08x\n"
-                "--------------------\n",
-                caps.driver,
-                caps.card,
-                caps.bus_info,
-                (caps.version>>16)&&0xff,
-                (caps.version>>24)&&0xff,
-                caps.capabilities);
-    }
     
     init_mmap(fd);
     
-    char c;
+    char c='n';
     do{
     	ready_to_capture(fd);
+        /*if(-1==get_arg_opts(argc,argv) ){
+            continue;
+        }*/
     	printf("do you want to re-take?(y-n):");
-    	scanf("%c",&c);
+    	scanf(" %c",&c);
     }while(c!='n');
     
     return 0;
