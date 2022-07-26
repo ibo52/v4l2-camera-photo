@@ -37,7 +37,7 @@ char *dev_name;//camera path, default:/dev/video0 on main
 int fd = -1;//file descriptor of camera
 uint8_t *buffer;	//cam output buffer as one bit each
 
-int outfd=-1;//descriptor of image
+//int outfd=-1;//descriptor of output image
 
 struct v4l2_format fmt;//format specs
 struct v4l2_buffer cam_buf;
@@ -196,9 +196,9 @@ int ready_to_capture(int fd)
     }
 
 	//O_CREATE satırını ekledim
-    outfd = open("out.jpg", O_RDWR|O_CREAT);
+    /*outfd = open("out.jpg", O_RDWR|O_CREAT);
     write(outfd, buffer, cam_buf.bytesused);
-    close(outfd);
+    close(outfd);*/
     return 0;
 }
 void print_specs(){

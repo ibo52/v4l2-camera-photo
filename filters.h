@@ -9,5 +9,6 @@ void im2gray(uint8_t*,int);
 void im2inverse(uint8_t*,int);
 int decode_rgb(uint8_t*,int ,int ,int );
 int save2ppm(uint8_t*,int ,int ,int ,char*);
+int save2jpeg(unsigned char *,int ,int ,int ,char *,int );
 
 #endif
