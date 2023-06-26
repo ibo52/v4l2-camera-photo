@@ -10,5 +10,5 @@ void im2inverse(uint8_t*,int);
 int decode_rgb(uint8_t*,int ,int ,int );
 int save2ppm(uint8_t*,int ,int ,int ,char*);
 int save2jpeg(unsigned char *,int ,int ,int ,char *,int );
-
+uint8_t* pad(uint8_t*,int width, int height, int , int ,int ,int);
 #endif

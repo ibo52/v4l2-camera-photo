@@ -24,6 +24,42 @@ int write_time(char *buff,int buffsize){
 	
 }
 
+//pad the image and return the address of padded buffer
+uint8_t* pad(uint8_t *buffer,int width,int height,short top_pad,short right_pad, short bottom_pad, short left_pad){
+	
+	//open new image array and set to zero
+	//uint8_t *padded;//dynamicly allocate to return
+	int new_w=width+left_pad+right_pad;
+	int new_h=height+top_pad+bottom_pad;
+	short color_=3;//RGB
+	
+	uint8_t *padded;//new array for ğadded image
+	padded=(uint8_t*)calloc(new_w*new_h*color_ ,sizeof(uint8_t));
+	
+	int i=0,j=0,idx=0;
+	
+	int left_right_pad_skip=left_pad*color_;//pad skipping for left and right sides
+	
+	int top_pad_skip=top_pad*new_w*color_;//pad skipping for top side
+	
+	while (i<height){
+		
+		j=j%width;
+		while (j<width*color_){
+		
+			idx=i*width*color_+j;
+			//transfer rgb data to appropriate location of new array
+			padded[ idx+ top_pad_skip+ left_right_pad_skip ]= buffer[idx];
+			
+			j++;
+		}
+		left_right_pad_skip+=color_*(right_pad+ left_pad);
+		i++;
+	}
+	
+	return padded;
+}
+
 void im2bw(uint8_t *buffer,int size){
 	//for rgb data
 	int i;
@@ -188,10 +224,10 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 
 	jpeg_start_decompress(&cinfo);
 
-	int pixel_size = cinfo.output_components;
+	int pixel_size = cinfo.output_components;//pixelsize=3 (r,g,b)
 
 	processed_size = width * height * pixel_size;
-	processed_buffer = (unsigned char*) malloc(processed_size);
+	processed_buffer = malloc(processed_size*sizeof(uint8_t));
  
 	int row_stride = width * pixel_size;
 
@@ -214,11 +250,12 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	
 	printf(	"------------FILTERS------------\n"
 			"1. binary\n2. inverse\n3. grayscale\n"
+			"4. zero padding\n"
 			"------------FILTERS------------\n");
 			
 	printf("enter the filter num to apply ('any' for no filter): ");
 	scanf(" %c",&c);
-	
+
 	switch( c ){
 		case '1':{
 			out_img_name="binary_filtered";
@@ -237,13 +274,29 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			im2gray(processed_buffer,processed_size);
 			break;
 		}
+		case '4':{
+			out_img_name="zero_padded";
+			
+			uint8_t *buffer_;
+			int pad_w=width>>3;
+			int pad_h=height>>3;
+			buffer_=pad(processed_buffer,width,height, pad_h, pad_w, pad_h, pad_w);//sample zero padding
+			
+			free(processed_buffer);
+			processed_buffer=buffer_;
+			
+			width+=2*pad_w;
+			height+=2*pad_h;
+			processed_size=width*height*3;
+			break;
+		}
 		default:{
 			printf("default:no filter\n");
 			break;
 		}
 	}
 
-	save2ppm( processed_buffer, processed_size, width, height,out_img_name );
+	//save2ppm( processed_buffer, processed_size, width, height,out_img_name );
 	save2jpeg( processed_buffer, processed_size, width, height,out_img_name,90 );
 	//printf("End of decompression\n");
 	free( processed_buffer );
