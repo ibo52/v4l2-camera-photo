@@ -15,7 +15,7 @@ info:
 
 compile:
 	@echo "compiling.."
-	gcc cam.c filters.h filters.c -ljpeg -o "$(DIR)/bin/camera"
+	gcc cam.c filters.h filters.c -ljpeg -o "$(DIR)/bin/camera" -lm -g
 	@echo "Done"
 	@echo "---------------------------"
 

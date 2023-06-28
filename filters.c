@@ -9,6 +9,114 @@
 
 #include<time.h>
 
+#include <math.h>//pow,M_PI, M_E
+
+float* gaussfilt2d(int size, float sigma){
+
+		float SQUARE_SIGMA=sigma*sigma;
+
+        float COEFF_ROOT=1/(2*M_PI*SQUARE_SIGMA);
+
+        int range_=(size-1)/2;
+        
+        float *kernel;
+        kernel=(float*)malloc(pow(size,2)*sizeof(float));
+        
+        
+        //COEFF_ROOT is also center value
+        //if we want to normalize, divide all to this
+        int idx=0;
+		//calculate 2d gauss kernel
+		//ref:https://en.wikipedia.org/wiki/Gaussian_blur
+        for(int y=-range_; y< range_+1; y++){
+
+            for(int x=-range_; x< range_+1; x++){
+
+                float calculated=COEFF_ROOT*pow(M_E,-(x*x + y*y)/(2*SQUARE_SIGMA));
+
+                kernel[idx++]=calculated/COEFF_ROOT;
+                
+            }
+        }
+        return kernel;
+        
+}
+//pad the image and return the address of padded buffer
+uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma){
+	
+	//open new image array to apply filter
+	int new_w=width-fsize+1;
+	int new_h=height-fsize+1;
+	short color_=3;//RGB color array
+	
+	uint8_t *apply;//new array for filtered image
+    float   *kernel;//our kernel to calculate distribution ratio
+
+	apply=(uint8_t*)calloc(new_w*new_h*color_ ,sizeof(uint8_t));
+	
+    kernel=gaussfilt2d(fsize,fsigma);//(float*)malloc(fsize*fsize*sizeof(float));
+
+	int i=0,j=0,idx=0,a_idx=0;
+	
+    /*determine initial start index by inserting center of filter 
+    to first element of array(by skipping pads)
+    */
+	int apply_idx=((width+1)*(fsize-1)/2)*color_;
+	
+	while (i<new_h){
+		
+		j=j%new_w;
+		while (j<new_w*color_){
+
+                        /*placing the center of the kernel
+                        to the original image array*/
+						idx=i*width*color_+j;
+                        
+                        //to access our new image array
+                        a_idx=i*new_w*color_+j;
+
+                        int ken[fsize*fsize*3];
+                            
+                        //here we getting buffer index offsets
+                        //to process later on
+                        for(int y=0; y<fsize; y++){
+
+                            for(int x=0; x<fsize*3; x++){
+
+                            	int idx2=y*width*color_+x;
+                            	//printf(" ken[%d]= idx+ idx2:%d+ %d\n",y*fsize*3+x,idx,idx2);
+                            	ken[y*fsize*3+x]=idx+idx2;//keeping indexes to be processed
+                       		}
+						}
+                        //calcultaing the sum of indexes with kernel
+                        //then placing manipulated data to new buffer
+                        float sum[3];
+                        for(int y=0; y< fsize*fsize*3; y+=3){
+                            int c_idx=y/3;
+                            
+                            float coeff=kernel[c_idx];//getting coefficient from kernel
+                            
+                            sum[0]+=buffer[ ken[ y ] ];//*coeff*4;//R values
+                            sum[1]+=buffer[ ken[y+1] ];//*coeff*4;//G values
+                            sum[2]+=buffer[ ken[y+2] ];//*coeff*4;//B values
+                        }
+                        
+			//transfer manipulated data to appropriate location of new array
+			apply[  a_idx  ]= sum[0]/(fsize*fsize);
+            apply[ a_idx+1 ]= sum[1]/(fsize*fsize);
+            apply[ a_idx+2 ]= sum[2]/(fsize*fsize);
+            
+			sum[0]=0;
+			sum[1]=0;
+			sum[2]=0;
+			j+=color_;
+		}
+		i++;
+	}
+	
+	return apply;//return processed image
+}
+//--------------------------------------------------------
 int write_time(char *buff,int buffsize){
 	time_t rawtime;
 	struct tm *local_curr;
@@ -23,7 +131,6 @@ int write_time(char *buff,int buffsize){
 	return 0;
 	
 }
-
 //pad the image and return the address of padded buffer
 uint8_t* pad(uint8_t *buffer,int width,int height,short top_pad,short right_pad, short bottom_pad, short left_pad){
 	
@@ -250,12 +357,12 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	
 	printf(	"------------FILTERS------------\n"
 			"1. binary\n2. inverse\n3. grayscale\n"
-			"4. zero padding\n"
+			"4. zero padding\n5. gauss blur\n"
 			"------------FILTERS------------\n");
 			
 	printf("enter the filter num to apply ('any' for no filter): ");
 	scanf(" %c",&c);
-
+	
 	switch( c ){
 		case '1':{
 			out_img_name="binary_filtered";
@@ -287,6 +394,22 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			
 			width+=2*pad_w;
 			height+=2*pad_h;
+			processed_size=width*height*3;
+			break;
+		}
+		case '5':{
+			out_img_name="gauss_blur";
+			
+			uint8_t *buffer_;
+			
+			int fsize=11;
+			buffer_=gaussBlur(processed_buffer,width,height, fsize, 1.0);//sample zero padding
+
+			free(processed_buffer);
+			processed_buffer=buffer_;
+			
+			width=width-fsize+1;
+			height=height-fsize+1;
 			processed_size=width*height*3;
 			break;
 		}
