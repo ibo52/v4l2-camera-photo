@@ -11,6 +11,111 @@
 
 #include <math.h>//pow,M_PI, M_E
 
+uint8_t *normalize(float *buffer,int width,int height){
+	//function normalizes image to 0-255 range
+	float max=buffer[0];
+	float min=buffer[0];
+	
+	int newMin=0;
+	int newMax=255;
+	
+	uint8_t *new_buffer=(uint8_t*)malloc(width*height*3*sizeof(uint8_t));
+	
+	for(int i=1; i<width*height*3; i++){
+		if (buffer[i]<min){
+			min=buffer[i];
+		}
+		else if(buffer[i]>max){
+			max=buffer[i];
+		}
+	}
+	
+	printf("min:%f max:%f\n",min,max);
+	
+	for(int i=0; i<width*height*3; i++){
+		new_buffer[i]=(buffer[i]-min)*(newMax-newMin)/(max-min)+newMin;
+	}
+	printf("normalize func done\n");
+	return new_buffer;
+}
+
+float* laplacian(uint8_t *buffer,int width,int height){
+	//this function detects edges on image buffer
+	int color_=3;
+	int fsize=3;
+	int new_w=width-2;
+	int new_h=height-2;
+	
+	int8_t *kernel=(uint8_t*)malloc(fsize*fsize*sizeof(int8_t));//3x3 laplace mask
+	memset(kernel,1,9);
+	
+	kernel[4]=-8;
+	
+	float *apply=calloc(new_w*new_h*3,sizeof(float));//processed image
+	/*
+	*/
+	int i=0,j=0,idx=0,a_idx=0;
+	
+    /*determine initial start index by inserting center of filter 
+    to first element of array(by skipping pads)
+    */
+	int apply_idx=((width+1)*(fsize-1)/2)*color_;
+	
+	while (i<new_h){
+		
+		j=j%new_w;
+		while (j<new_w*color_){
+
+                        /*placing the center of the kernel
+                        to the original image array*/
+						idx=i*width*color_+j;
+                        
+                        //to access our new image array
+                        a_idx=i*new_w*color_+j;
+
+                        int ken[fsize*fsize*3];
+                            
+                        //here we getting buffer index offsets
+                        //to process later on
+                        for(int y=0; y<fsize; y++){
+
+                            for(int x=0; x<fsize*3; x++){
+
+                            	int idx2=y*width*color_+x;
+                            	//printf(" ken[%d]= idx+ idx2:%d+ %d\n",y*fsize*3+x,idx,idx2);
+                            	ken[y*fsize*3+x]=idx+idx2;//keeping indexes to be processed
+                       		}
+						}
+                        //calcultaing the sum of indexes with kernel
+                        //then placing manipulated data to new buffer
+                        float sum[3];
+                        for(int y=0; y< fsize*fsize*3; y+=3){
+                            int c_idx=y/3;
+                            
+                            float coeff=kernel[c_idx];//getting coefficient from kernel
+                            
+                            sum[0]+=buffer[ ken[ y ] ]*coeff;//R values
+                            sum[1]+=buffer[ ken[y+1] ]*coeff;//G values
+                            sum[2]+=buffer[ ken[y+2] ]*coeff;//B values
+                        }
+                        
+			//transfer manipulated data to appropriate location of new array
+			apply[  a_idx  ]= sum[0]/(fsize*fsize);
+            apply[ a_idx+1 ]= sum[1]/(fsize*fsize);
+            apply[ a_idx+2 ]= sum[2]/(fsize*fsize);
+            
+			sum[0]=0;
+			sum[1]=0;
+			sum[2]=0;
+			j+=color_;
+		}
+		i++;
+	}
+	
+	return apply;//return processed image
+	
+}
+
 float* gaussfilt2d(int size, float sigma){
 
 		float SQUARE_SIGMA=sigma*sigma;
@@ -96,9 +201,9 @@ uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma){
                             
                             float coeff=kernel[c_idx];//getting coefficient from kernel
                             
-                            sum[0]+=buffer[ ken[ y ] ];//*coeff*4;//R values
-                            sum[1]+=buffer[ ken[y+1] ];//*coeff*4;//G values
-                            sum[2]+=buffer[ ken[y+2] ];//*coeff*4;//B values
+                            sum[0]+=buffer[ ken[ y ] ]*coeff;//R values
+                            sum[1]+=buffer[ ken[y+1] ]*coeff;//G values
+                            sum[2]+=buffer[ ken[y+2] ]*coeff;//B values
                         }
                         
 			//transfer manipulated data to appropriate location of new array
@@ -354,10 +459,11 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	//free(jpg_buffer);
 	char *out_img_name="image_shot";
 	char c;
-	
+
 	printf(	"------------FILTERS------------\n"
 			"1. binary\n2. inverse\n3. grayscale\n"
 			"4. zero padding\n5. gauss blur\n"
+			"6. laplacian edge detection\n"
 			"------------FILTERS------------\n");
 			
 	printf("enter the filter num to apply ('any' for no filter): ");
@@ -411,6 +517,39 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			width=width-fsize+1;
 			height=height-fsize+1;
 			processed_size=width*height*3;
+			break;
+		}
+		case '6':{
+			out_img_name="laplace_edge";
+			
+			//1. grayscale
+			im2gray(processed_buffer,processed_size);
+			
+			//2. blur to decrease noise
+			uint8_t *buffer_; int fsize=11;
+			buffer_=gaussBlur(processed_buffer,width,height, fsize, 1.0);//sample zero padding
+			
+			width=width-fsize+1;
+			height=height-fsize+1;
+			processed_size=width*height*3;
+			
+			float *f_buffer_;
+			//detect edges
+			f_buffer_=laplacian(buffer_,width,height);
+			free(buffer_);
+			
+			//normalize laplace filtered image
+			
+			width=width-2;
+			height=height-2;
+			processed_size=width*height*3;
+			
+			buffer_=normalize(f_buffer_,width,height);
+			
+			free(processed_buffer);
+			processed_buffer=buffer_;
+			
+			
 			break;
 		}
 		default:{

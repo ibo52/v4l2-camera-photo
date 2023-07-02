@@ -13,4 +13,6 @@ int save2jpeg(unsigned char *,int ,int ,int ,char *,int );
 uint8_t* pad(uint8_t*,int width, int height, int , int ,int ,int);
 float* gaussfilt2d(int size, float sigma);
 uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma);
+float* laplacian(uint8_t *buffer,int width,int height);
+uint8_t *normalize(float *buffer,int width,int height);
 #endif
