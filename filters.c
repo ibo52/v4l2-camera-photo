@@ -120,16 +120,16 @@ float* gaussfilt2d(int size, float sigma){
 
 		float SQUARE_SIGMA=sigma*sigma;
 
-        float COEFF_ROOT=1/(2*M_PI*SQUARE_SIGMA);
+        //float COEFF_ROOT=1/(2*M_PI*SQUARE_SIGMA);
 
         int range_=(size-1)/2;
         
-        float *kernel;
-        kernel=(float*)malloc(pow(size,2)*sizeof(float));
+        float *kernel;		//+1 alloc is for sum of weights of kernel
+        kernel=(float*)malloc(pow(size,2)*sizeof(float)+1);
         
-        
-        //COEFF_ROOT is also center value
-        //if we want to normalize, divide all to this
+        float SUM_WEIGHTS=0;
+        //center value is 1
+        //as kernel normalized
         int idx=0;
 		//calculate 2d gauss kernel
 		//ref:https://en.wikipedia.org/wiki/Gaussian_blur
@@ -137,12 +137,13 @@ float* gaussfilt2d(int size, float sigma){
 
             for(int x=-range_; x< range_+1; x++){
 
-                float calculated=COEFF_ROOT*pow(M_E,-(x*x + y*y)/(2*SQUARE_SIGMA));
+                float calculated= pow(M_E,-(x*x + y*y)/(2*SQUARE_SIGMA));
 
-                kernel[idx++]=calculated/COEFF_ROOT;
-                
+                kernel[idx++]=calculated;
+             	SUM_WEIGHTS+=calculated;
             }
         }
+        kernel[size*size]=SUM_WEIGHTS;//last index keeps sum of weights
         return kernel;
         
 }
@@ -160,7 +161,7 @@ uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma){
 	apply=(uint8_t*)calloc(new_w*new_h*color_ ,sizeof(uint8_t));
 	
     kernel=gaussfilt2d(fsize,fsigma);//(float*)malloc(fsize*fsize*sizeof(float));
-
+    float SUM_OF_WEIGHTS_OF_KERNEL = kernel[fsize*fsize];
 	int i=0,j=0,idx=0,a_idx=0;
 	
     /*determine initial start index by inserting center of filter 
@@ -207,9 +208,9 @@ uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma){
                         }
                         
 			//transfer manipulated data to appropriate location of new array
-			apply[  a_idx  ]= sum[0]/(fsize*fsize);
-            apply[ a_idx+1 ]= sum[1]/(fsize*fsize);
-            apply[ a_idx+2 ]= sum[2]/(fsize*fsize);
+			apply[  a_idx  ]= sum[0]/SUM_OF_WEIGHTS_OF_KERNEL;
+            apply[ a_idx+1 ]= sum[1]/SUM_OF_WEIGHTS_OF_KERNEL;
+            apply[ a_idx+2 ]= sum[2]/SUM_OF_WEIGHTS_OF_KERNEL;
             
 			sum[0]=0;
 			sum[1]=0;
@@ -509,7 +510,7 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			uint8_t *buffer_;
 			
 			int fsize=11;
-			buffer_=gaussBlur(processed_buffer,width,height, fsize, 1.0);//sample zero padding
+			buffer_=gaussBlur(processed_buffer,width,height, fsize, 5.0);//sample zero padding
 
 			free(processed_buffer);
 			processed_buffer=buffer_;
@@ -564,3 +565,4 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	free( processed_buffer );
 	return 0;
 }
+
