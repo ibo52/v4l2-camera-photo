@@ -1,8 +1,14 @@
-.PHONY=compile remove info makedirs
+.PHONY=compile remove info
 	
 TARGET=info
 all:info makedirs compile
-DIR=halocam-v4l2
+
+CC=gcc
+CFLAGS=-ljpeg -lm -g
+
+PROGRAM_ROOT_DIR=halocam-v4l2
+HEADER_FILES:=$(wildcard include/*.h)
+SOURCE_FILES:=$(wildcard source/*.c)
 
 info:
 	@echo "----------------------"
@@ -15,20 +21,20 @@ info:
 
 compile:
 	@echo "compiling.."
-	gcc cam.c filters.h filters.c -ljpeg -o "$(DIR)/bin/camera" -lm -g
+	$(CC) $(HEADER_FILES) $(SOURCE_FILES) -o "$(PROGRAM_ROOT_DIR)/bin/camera" $(CFLAGS)
 	@echo "Done"
 	@echo "---------------------------"
 
 remove:
 	@echo "Removing main directory.."
-	rm -rf $(DIR)/
+	rm -rf $(PROGRAM_ROOT_DIR)/
 	@echo "Program directory removed."
 	@echo "----------------------"
 
 makedirs:
 	@echo "making directories.."
-	@echo "$(DIR) is MAIN DIRECTORY FOR SETUP"
-	mkdir -p $(DIR)/images
-	mkdir -p $(DIR)/images/ppm
-	mkdir -p $(DIR)/bin
+	@echo "$(PROGRAM_ROOT_DIR) is MAIN DIRECTORY FOR SETUP"
+	mkdir -p $(PROGRAM_ROOT_DIR)/images
+	mkdir -p $(PROGRAM_ROOT_DIR)/images/ppm
+	mkdir -p $(PROGRAM_ROOT_DIR)/bin
 	@echo "----------------------"

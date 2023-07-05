@@ -29,7 +29,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "filters.h"
+#include "../include/filters.h"
 //write zero to the struct space
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
