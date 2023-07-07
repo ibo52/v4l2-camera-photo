@@ -7,167 +7,15 @@
 #include <jpeglib.h>	//to decode jpg image buffer
 #include<time.h>		//timestamp for imagenames
 #include <math.h>		//pow() func; M_PI, M_E constants
-#include "../include/filters.h"//function definitions of this file
 
-uint8_t *normalize(float *buffer,int width,int height){
-	//function normalizes image to 0-255 range
-	float max=buffer[0];
-	float min=buffer[0];
-	
-	int newMin=0;
-	int newMax=255;
-	
-	uint8_t *new_buffer=(uint8_t*)malloc(width*height*3*sizeof(uint8_t));
-	
-	for(int i=1; i<width*height*3; i++){
-		if (buffer[i]<min){
-			min=buffer[i];
-		}
-		else if(buffer[i]>max){
-			max=buffer[i];
-		}
-	}
-	
-	printf("min:%f max:%f\n",min,max);
-	
-	for(int i=0; i<width*height*3; i++){
-		new_buffer[i]=(buffer[i]-min)*(newMax-newMin)/(max-min)+newMin;
-	}
+//---USER DEFINED HEADER FILES---
+#include "filters.h"//function definitions of this file
+#include "laplace.h"//laplace definitions
+#include "gauss-blur.h"//gaussian blurring definitions
+#include "conv2d.h"//convolve definitions
+#include "normalize.h"//convolve definitions
+#include "pad.h"//convolve definitions
 
-	return new_buffer;
-}
-
-float* laplacian(uint8_t *buffer,int width,int height){
-	//this function detects edges on image buffer
-	int fsize=3;
-	//---SPECIFY THE KERNEL----------
-	float *kernel=(float*)malloc(fsize*fsize*sizeof(float)+1);//3x3 laplace mask
-	for(int i=0;i<fsize ; i++){//memset is not appropriate for float types
-		for(int j=0;j<fsize ; j++){
-			kernel[i*fsize+j]=1;
-		}
-	}kernel[4]=-8;
-	kernel[fsize*fsize]=fsize*fsize;
-	//---SPECIFY THE KERNEL----------
-	
-	float *apply=conv2d(buffer,width, height, kernel, fsize);//processed image
-	return apply;//return processed image
-	
-}
-
-float* gaussfilt2d(int size, float sigma){
-
-		float SQUARE_SIGMA=sigma*sigma;
-
-        //float COEFF_ROOT=1/(2*M_PI*SQUARE_SIGMA);
-
-        int range_=(size-1)/2;
-        
-        float *kernel;		//+1 alloc is for sum of weights of kernel
-        kernel=(float*)malloc(pow(size,2)*sizeof(float)+1);
-        
-        float SUM_WEIGHTS=0;
-        //center value is 1
-        //as kernel normalized
-        int idx=0;
-		//calculate 2d gauss kernel
-		//ref:https://en.wikipedia.org/wiki/Gaussian_blur
-        for(int y=-range_; y< range_+1; y++){
-
-            for(int x=-range_; x< range_+1; x++){
-
-                float calculated= pow(M_E,-(x*x + y*y)/(2*SQUARE_SIGMA));
-
-                kernel[idx++]=calculated;
-             	SUM_WEIGHTS+=calculated;
-            }
-        }
-        kernel[size*size]=SUM_WEIGHTS;//last index keeps sum of weights
-        return kernel;
-        
-}
-
-float* conv2d(uint8_t *buffer,int width,int height,float* kernel,int ksize){
-	/*convoles the buffer with kernel, then returns address of filtered image
-	*/
-	//open new image array to apply filter
-	int new_w=width-ksize+1;
-	int new_h=height-ksize+1;
-	short color_=3;//RGB color array
-	
-	float *apply;//new array for filtered image
-	apply=(float*)calloc(new_w*new_h*color_ ,sizeof(float));
-	
-	float SUM_OF_WEIGHTS_OF_KERNEL = kernel[ksize*ksize];
-	int i=0,j=0,idx=0,a_idx=0;
-	
-	while (i<new_h){
-		
-		j=j%new_w;
-		while (j<new_w*color_){
-
-                        /*placing the center of the kernel
-                        to the original image array*/
-						idx=i*width*color_+j;
-                        
-                        //to access our new image array
-                        a_idx=i*new_w*color_+j;
-
-                        int ken[ksize*ksize*3];
-                            
-                        //here we getting buffer index offsets
-                        //to process later on
-                        for(int y=0; y<ksize; y++){
-
-                            for(int x=0; x<ksize*3; x++){
-
-                            	int idx2=y*width*color_+x;
-                            	//printf(" ken[%d]= idx+ idx2:%d+ %d\n",y*fsize*3+x,idx,idx2);
-                            	ken[y*ksize*3+x]=idx+idx2;//keeping indexes to be processed
-                       		}
-						}
-                        //calcultaing the sum of indexes with kernel
-                        //then placing manipulated data to new buffer
-                        float sum[3];
-                        for(int y=0; y< ksize*ksize*3; y+=3){
-                            int c_idx=y/3;
-                            
-                            float coeff=kernel[c_idx];//getting coefficient from kernel
-                            
-                            sum[0]+=buffer[ ken[ y ] ]*coeff;//R values
-                            sum[1]+=buffer[ ken[y+1] ]*coeff;//G values
-                            sum[2]+=buffer[ ken[y+2] ]*coeff;//B values
-                        }
-                        
-			//transfer manipulated data to appropriate location of new array
-			apply[  a_idx  ]= sum[0]/SUM_OF_WEIGHTS_OF_KERNEL;
-            apply[ a_idx+1 ]= sum[1]/SUM_OF_WEIGHTS_OF_KERNEL;
-            apply[ a_idx+2 ]= sum[2]/SUM_OF_WEIGHTS_OF_KERNEL;
-            
-			sum[0]=0;
-			sum[1]=0;
-			sum[2]=0;
-			j+=color_;
-		}
-		i++;
-	}
-	return apply;
-	
-}
-//pad the image and return the address of padded buffer
-uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma){
-	
-	uint8_t *apply;//new array for filtered image
-    float   *kernel;//our kernel to calculate distribution ratio
-    int sizeReducted=(fsize-1);
-	
-    kernel=gaussfilt2d(fsize,fsigma);//(float*)malloc(fsize*fsize*sizeof(float));
-    
-    //here we normalizing result of float* to uint8*
-    apply=normalize(conv2d(buffer,width, height, kernel, fsize)  ,width-sizeReducted, height-sizeReducted);
-	
-	return apply;//return processed image
-}
 //--------------------------------------------------------
 int write_time(char *buff,int buffsize){
 	time_t rawtime;
@@ -182,41 +30,6 @@ int write_time(char *buff,int buffsize){
 	strcat(buff,timecalc);
 	return 0;
 	
-}
-//pad the image and return the address of padded buffer
-uint8_t* pad(uint8_t *buffer,int width,int height,int top_pad, int right_pad, int bottom_pad, int left_pad){
-	
-	//open new image array and set to zero
-	//uint8_t *padded;//dynamicly allocate to return
-	int new_w=width+left_pad+right_pad;
-	int new_h=height+top_pad+bottom_pad;
-	short color_=3;//RGB
-	
-	uint8_t *padded;//new array for ğadded image
-	padded=(uint8_t*)calloc(new_w*new_h*color_ ,sizeof(uint8_t));
-	
-	int i=0,j=0,idx=0;
-	
-	int left_right_pad_skip=left_pad*color_;//pad skipping for left and right sides
-	
-	int top_pad_skip=top_pad*new_w*color_;//pad skipping for top side
-	
-	while (i<height){
-		
-		j=j%width;
-		while (j<width*color_){
-		
-			idx=i*width*color_+j;
-			//transfer rgb data to appropriate location of new array
-			padded[ idx+ top_pad_skip+ left_right_pad_skip ]= buffer[idx];
-			
-			j++;
-		}
-		left_right_pad_skip+=color_*(right_pad+ left_pad);
-		i++;
-	}
-	
-	return padded;
 }
 
 void im2bw(uint8_t *buffer,int size){
@@ -306,11 +119,6 @@ int save2jpeg(unsigned char *rgb_buffer,int buffsize,int width,int height,char *
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
 
-	// Variables for the output buffer, and how long it is
-	unsigned long processed_size;
-	unsigned char *processed_buffer;
-
-
 	cinfo.err = jpeg_std_error(&jerr);	
 	jpeg_create_compress(&cinfo);
 
@@ -358,7 +166,7 @@ int save2jpeg(unsigned char *rgb_buffer,int buffsize,int width,int height,char *
 //decode jpg to rgb raw values
 //libjpeg-turbo8-dev library used
 int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
-	int rc, i, j;
+	int rc;
 
 	// Variables for the decompressor itself
 	struct jpeg_decompress_struct cinfo;
@@ -451,6 +259,7 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			break;
 		}
 		case '5':{
+		clock_t t=clock();
 			out_img_name="gauss_blur";
 			
 			uint8_t *buffer_;
@@ -464,9 +273,12 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			width=width-fsize+1;
 			height=height-fsize+1;
 			processed_size=width*height*3;
+			t=clock()-t;
+			printf ("gauss blurring process took %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
 			break;
 		}
 		case '6':{
+		clock_t t=clock();
 			out_img_name="laplace_edge";
 			
 			//1. grayscale
@@ -495,7 +307,8 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 			free(processed_buffer);
 			processed_buffer=buffer_;
 			
-			
+			t=clock()-t;
+			printf ("laplace process took %ld clicks (%f seconds).\n",t,((float)t)/CLOCKS_PER_SEC);
 			break;
 		}
 		default:{

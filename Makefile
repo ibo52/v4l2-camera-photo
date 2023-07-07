@@ -4,11 +4,12 @@ TARGET=info
 all:info makedirs compile
 
 CC=gcc
-CFLAGS=-ljpeg -lm -g
+CFLAGS=-ljpeg -lm -Wall -g
 
 PROGRAM_ROOT_DIR=halocam-v4l2
-HEADER_FILES:=$(wildcard include/*.h)
-SOURCE_FILES:=$(wildcard source/*.c)
+
+HEADER_FILES:=include/
+SOURCE_FILES:=$(shell find -type f -name "*.c")
 
 info:
 	@echo "----------------------"
@@ -21,7 +22,7 @@ info:
 
 compile:
 	@echo "compiling.."
-	$(CC) $(HEADER_FILES) $(SOURCE_FILES) -o "$(PROGRAM_ROOT_DIR)/bin/camera" $(CFLAGS)
+	$(CC) $(SOURCE_FILES) -I$(HEADER_FILES) -o "$(PROGRAM_ROOT_DIR)/bin/camera" $(CFLAGS)
 	@echo "Done"
 	@echo "---------------------------"
 

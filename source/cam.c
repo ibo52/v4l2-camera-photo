@@ -29,7 +29,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "../include/filters.h"
+#include "filters.h"
 //write zero to the struct space
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
@@ -264,12 +264,13 @@ int main(int argc, char **argv){
     dev_name="/dev/video0";
     
     if( (fd = open(dev_name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
-        char *msg;
-        sprintf(msg,"Could not open '%s'\n",dev_name);
+    
+        char *msg=(char*)calloc(32,sizeof(char));
+        sprintf(msg,"Could not open '%s'",dev_name);
         perror(msg);
         return fd;
     }
-    
+    printf("open %s returned %i",dev_name,fd);
     init_camera(fd);
     
     init_mmap(fd);
