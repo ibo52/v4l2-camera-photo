@@ -8,7 +8,7 @@ system | specs | of development|
 --- | --- | --- |
 _Environment_| Ubuntu 22.04| gcc 11.3.0
 _kernel_  | 5.19.0-45-generic_
-_External libraries_| libjpeg-turbo8-dev
+_External libraries_| libjpeg-turbo8-dev| libgtk-3-dev
   ***
 - Added filters:
   1. binary
