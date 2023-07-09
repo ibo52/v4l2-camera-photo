@@ -165,6 +165,7 @@ int save2jpeg(unsigned char *rgb_buffer,int buffsize,int width,int height,char *
 
 //decode jpg to rgb raw values
 //libjpeg-turbo8-dev library used
+/*
 int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	int rc;
 
@@ -323,4 +324,4 @@ int decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	free( processed_buffer );
 	return 0;
 }
-
+*/

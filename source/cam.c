@@ -25,16 +25,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#include <unistd.h>		//uint8_t
 #include <stdlib.h>
 
-#include "filters.h"
+#include <sys/mman.h>	//mmap
+#include <jpeglib.h>	//to decode jpg image buffer
 //write zero to the struct space
+
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 char *dev_name;//camera path, default:/dev/video0 on main
-int fd = -1;//file descriptor of camera
+int fd=-1;//file descriptor of camera
 uint8_t *buffer;	//cam output buffer as one bit each
 
 //int outfd=-1;//descriptor of output image
@@ -50,7 +51,7 @@ struct v4l2_requestbuffers req;
  * 
  *  
 */
-static int xioctl(int fh, int request, void *arg){
+int xioctl(int fh, int request, void *arg){
     int r;
 
     do {
@@ -60,7 +61,7 @@ static int xioctl(int fh, int request, void *arg){
     return r;
 }
 
-static void set_format(int width,int height){
+void set_format(int width,int height){
     fmt.fmt.pix.width=width;
     fmt.fmt.pix.height=height;
     if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)){
@@ -71,7 +72,7 @@ static void set_format(int width,int height){
     printf("display formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
-static int init_camera(int fd){
+int init_camera(int fd){
 
     CLEAR(cropcap);//clear data struct
     CLEAR(fmt);
@@ -151,6 +152,7 @@ int init_mmap(int fd)
     }
     
     buffer = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
+
     return 0;
 }
 
@@ -258,7 +260,7 @@ int get_arg_opts(int argc,char **argv){
         return 0;
 }
 
-int main(int argc, char **argv){
+int activate(){
 	//try to open camera as read-write mode
     printf("-*- halocam -*-\n");
     dev_name="/dev/video0";
@@ -270,23 +272,67 @@ int main(int argc, char **argv){
         perror(msg);
         return fd;
     }
-    printf("open %s returned %i",dev_name,fd);
+
     init_camera(fd);
     
     init_mmap(fd);
     
-    get_arg_opts(argc,argv);
-    char c='n';
-    do{
-    	ready_to_capture(fd);
-        /*if(-1==get_arg_opts(argc,argv) ){
-            continue;
-        }*/
-        decode_rgb(buffer, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
-        
-    	printf("do you want to re-take?('y' or (any) to exit):");
-    	scanf(" %c",&c);
-    }while(c=='y');
-    
     return 0;
 }
+
+uint8_t* decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
+	int rc;
+
+	// Variables for the decompressor itself
+	struct jpeg_decompress_struct cinfo;
+	struct jpeg_error_mgr jerr;
+
+	// Variables for the output buffer, and how long it is
+	unsigned long processed_size;
+	unsigned char *processed_buffer;
+
+
+	cinfo.err = jpeg_std_error(&jerr);	
+	jpeg_create_decompress(&cinfo);
+
+	jpeg_mem_src(&cinfo, buffer, buffsize);
+
+	rc = jpeg_read_header(&cinfo, TRUE);
+
+	if (rc != 1) {
+		perror("Could not decode. Possibly broken JPEG");
+		exit(-1);
+	}
+
+	jpeg_start_decompress(&cinfo);
+
+	int pixel_size = cinfo.output_components;//pixelsize=3 (r,g,b)
+
+	processed_size = width * height * pixel_size;
+	processed_buffer = malloc(processed_size*sizeof(uint8_t));
+ 
+	int row_stride = width * pixel_size;
+
+
+	while (cinfo.output_scanline < cinfo.output_height) {
+		unsigned char *temp_array[1];
+		temp_array[0] = processed_buffer + (cinfo.output_scanline) * row_stride;
+
+		jpeg_read_scanlines(&cinfo, temp_array, 1);
+
+	}
+
+	jpeg_finish_decompress(&cinfo);
+
+	jpeg_destroy_decompress(&cinfo);
+
+	return processed_buffer;
+	
+}
+uint8_t* get_RGB_buff(){
+	ready_to_capture(fd);
+    uint8_t *rgbBuff=decode_rgb(buffer, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+    return rgbBuff;
+}
+
+
