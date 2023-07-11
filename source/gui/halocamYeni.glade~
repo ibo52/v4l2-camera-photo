@@ -3,9 +3,11 @@
 <interface>
   <requires lib="gtk+" version="3.24"/>
   <object class="GtkTextBuffer" id="deviceInfo_textbuffer">
-    <property name="text" translatable="yes">Device</property>
+    <property name="text" translatable="yes">Dev name
+Dev specf
+Dev format</property>
   </object>
-  <object class="GtkApplicationWindow" id="window">
+  <object class="GtkApplicationWindow">
     <property name="can-focus">False</property>
     <child>
       <object class="GtkBox">
@@ -79,7 +81,6 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="receives-default">True</property>
-                    <signal name="clicked" handler="captureButtonClicked" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -90,7 +91,7 @@
               </object>
               <packing>
                 <property name="name">page0</property>
-                <property name="title" translatable="yes">View</property>
+                <property name="title" translatable="yes">page0</property>
               </packing>
             </child>
             <child>
@@ -113,7 +114,7 @@
               </object>
               <packing>
                 <property name="name">page1</property>
-                <property name="title" translatable="yes">Info</property>
+                <property name="title" translatable="yes">page1</property>
                 <property name="position">1</property>
               </packing>
             </child>

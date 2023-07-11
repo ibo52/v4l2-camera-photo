@@ -2,8 +2,64 @@
 <!-- Generated with glade 3.38.2 -->
 <interface>
   <requires lib="gtk+" version="3.24"/>
-  <object class="GtkTextBuffer" id="deviceInfo_textbuffer">
-    <property name="text" translatable="yes">Device</property>
+  <object class="GtkWindow">
+    <property name="can-focus">False</property>
+    <child>
+      <object class="GtkBox" id="rootLayout">
+        <property name="visible">True</property>
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">1</property>
+        <child>
+          <object class="GtkBox" id="imageBoxLayout">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-left">5</property>
+            <property name="margin-right">5</property>
+            <property name="margin-start">5</property>
+            <property name="margin-end">5</property>
+            <property name="margin-top">5</property>
+            <property name="margin-bottom">5</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkImage" id="imageBox">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="stock">gtk-dialog-error</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="captureButton">
+            <property name="label" translatable="yes">button</property>
+            <property name="width-request">100</property>
+            <property name="height-request">80</property>
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="receives-default">True</property>
+            <signal name="clicked" handler="captureButtonClicked" swapped="no"/>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
   </object>
   <object class="GtkApplicationWindow" id="window">
     <property name="can-focus">False</property>
@@ -17,30 +73,27 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <property name="halign">center</property>
-            <property name="valign">center</property>
-            <property name="stack">frameStacks</property>
+            <property name="stack">stack1</property>
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">False</property>
+            <property name="fill">True</property>
             <property name="position">0</property>
           </packing>
         </child>
         <child>
-          <object class="GtkStack" id="frameStacks">
+          <object class="GtkStack" id="stack1">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
-            <property name="hhomogeneous">False</property>
-            <property name="vhomogeneous">False</property>
-            <property name="transition-type">slide-right</property>
+            <property name="resize-mode">immediate</property>
             <child>
-              <object class="GtkBox" id="rootLayout">
+              <object class="GtkBox" id="rootLayout1">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="orientation">vertical</property>
                 <property name="spacing">1</property>
                 <child>
-                  <object class="GtkBox" id="imageBoxLayout">
+                  <object class="GtkBox" id="imageBoxLayout1">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="margin-left">5</property>
@@ -53,7 +106,7 @@
                     <property name="vexpand">True</property>
                     <property name="orientation">vertical</property>
                     <child>
-                      <object class="GtkImage" id="imageBox">
+                      <object class="GtkImage" id="imageBox1">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="stock">gtk-dialog-error</property>
@@ -72,14 +125,13 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkButton" id="captureButton">
+                  <object class="GtkButton" id="captureButton1">
                     <property name="label" translatable="yes">button</property>
-                    <property name="width-request">100</property>
                     <property name="height-request">80</property>
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="receives-default">True</property>
-                    <signal name="clicked" handler="captureButtonClicked" swapped="no"/>
+                    <property name="halign">center</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -90,37 +142,27 @@
               </object>
               <packing>
                 <property name="name">page0</property>
-                <property name="title" translatable="yes">View</property>
+                <property name="title" translatable="yes">page0</property>
               </packing>
             </child>
             <child>
-              <object class="GtkBox" id="infoPageBox">
+              <object class="GtkButton">
+                <property name="label" translatable="yes">button</property>
                 <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="orientation">vertical</property>
-                <child>
-                  <object class="GtkTextView">
-                    <property name="visible">True</property>
-                    <property name="can-focus">True</property>
-                    <property name="buffer">deviceInfo_textbuffer</property>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="halign">center</property>
               </object>
               <packing>
                 <property name="name">page1</property>
-                <property name="title" translatable="yes">Info</property>
+                <property name="title" translatable="yes">page1</property>
                 <property name="position">1</property>
               </packing>
             </child>
           </object>
           <packing>
-            <property name="expand">True</property>
-            <property name="fill">True</property>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
             <property name="position">1</property>
           </packing>
         </child>

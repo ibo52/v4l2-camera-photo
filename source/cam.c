@@ -1,15 +1,15 @@
 /*
  *halil ibrahim mut
  * 
- * struggles of access to camera.
+ * 
  * 
  * this program using v4l2(linux/videodev2.h library) module,
  * which is comes as builtin on linux kernel.
  * this program simply takes photograph from
  * camera and save it as jpeg file.
  * 
- * coded on: Ubuntu 20.04
- * kernel  : 5.13.0-41-generic
+ * Environ : Ubuntu 22.04
+ * kernel  : 5.19.0-46-generic
  * 
  * Sources/references:
  * https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/capture.c.html
@@ -27,24 +27,34 @@
 #include <sys/ioctl.h>
 #include <unistd.h>		//uint8_t
 #include <stdlib.h>
-
 #include <sys/mman.h>	//mmap
 #include <jpeglib.h>	//to decode jpg image buffer
-//write zero to the struct space
+#include "filters.h"
 
-#define CLEAR(x) memset(&(x), 0, sizeof(x))
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+#define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
-char *dev_name;//camera path, default:/dev/video0 on main
-int fd=-1;//file descriptor of camera
-uint8_t *buffer;	//cam output buffer as one bit each
+char *dev_name;				//camera path, default:/dev/video0 on main
+int fd=-1;					//file descriptor of camera file
+uint8_t *buffer;			//cam output buffer that concatenated to mmap
 
-//int outfd=-1;//descriptor of output image
+struct halocam_device_specs{
+	char *text;
+	int length;
+};
+struct halocam_device_specs device_specs;
 
-struct v4l2_format fmt;//format specs
-struct v4l2_buffer cam_buf;
-struct v4l2_capability caps;//keep device capabilities
+struct v4l2_format fmt;		//format specs of dev
+struct v4l2_buffer cam_buf; //camera buffer took from device, we can also use *buffer to access RGB data
+struct v4l2_capability caps;//keep device info and capabilities
 struct v4l2_cropcap cropcap;//default cropping capabilities
-struct v4l2_crop crop;//set crop settings
+struct v4l2_crop crop;		//set crop settings
 struct v4l2_requestbuffers req;
 /*
  *
@@ -61,20 +71,35 @@ int xioctl(int fh, int request, void *arg){
     return r;
 }
 
-void set_format(int width,int height){
-    fmt.fmt.pix.width=width;
-    fmt.fmt.pix.height=height;
-    if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)){
-        fprintf(stdout,"Setting Pixel Format: err %d:%s\n",errno,strerror(errno));
-        exit(errno);
-    }
+void set_format(int width,int height,int pixfmt,int pixfield){
+	//Custom camera resolution
+	
+	if(  (width | height| pixfmt | pixfield)!=0  ){
+                fmt.fmt.pix.width       = width;
+                fmt.fmt.pix.height      = height;
+                fmt.fmt.pix.pixelformat = pixfmt;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
+                fmt.fmt.pix.field       = pixfield;//V4L2_FIELD_INTERLACED;
     
-    printf("display formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
+
+				if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)){
+					fprintf(stdout,"Setting Pixel Format: err %d:%s\n",errno,strerror(errno));
+					exit(errno);
+				}
+    }else{
+				//get default camera formats to fmt struct
+			
+				if (-1 == xioctl(fd, VIDIOC_G_FMT, &fmt)){
+					perror("get default dev format");
+					exit( errno );
+				}
+    }
+
+    printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
 int init_camera(int fd){
 
-    CLEAR(cropcap);//clear data struct
+    CLEAR(cropcap);	//clear data structs
     CLEAR(fmt);
     CLEAR(crop);
     CLEAR(caps);
@@ -86,7 +111,6 @@ int init_camera(int fd){
             return errno;
         } else {
             fprintf(stdout,"query device capabilities err %d:%s",errno,strerror(errno) );
-            perror("query device capabilities");
             return errno;
         }
     }
@@ -115,15 +139,10 @@ int init_camera(int fd){
     /*request FORMAT SETTİNGS */
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.pixelformat=V4L2_PIX_FMT_RGB24;
-    //get deafult camera formats to fmt struct
-    /*if (-1 == xioctl(fd, VIDIOC_G_FMT, &fmt)){
-        perror("get default dev format");
-        return errno;
-    }*/
+    
     //set to default with queried capabilities instead above
     //https://www.kernel.org/doc/html/v4.11/media/uapi/v4l/vidioc-cropcap.html#c.v4l2_cropcap
-    set_format(cropcap.bounds.width,cropcap.bounds.height);
-    
+    set_format(840,420,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);//set_format(cropcap.bounds.width,cropcap.bounds.height,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);
     return 0;
 }
 
@@ -158,7 +177,7 @@ int init_mmap(int fd)
 
 int ready_to_capture(int fd)
 {
-    //görüntünün alınacağı arabellek
+    //clear the struct which keep image
     CLEAR(cam_buf);
     
     cam_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -197,45 +216,54 @@ int ready_to_capture(int fd)
         return 1;
     }
 
-	//O_CREATE satırını ekledim
-    /*outfd = open("out.jpg", O_RDWR|O_CREAT);
-    write(outfd, buffer, cam_buf.bytesused);
-    close(outfd);*/
     return 0;
 }
 void print_specs(){
-    printf( "------------------------------\n"
+
+	char buffer_format[4];
+	int pixfmt=fmt.fmt.pix.pixelformat;
+	for(int i=0; i<4;i++){
+    	buffer_format[i]= pixfmt & 0xFF;
+    	pixfmt>>=8;	
+    };
+    
+    int length;
+    char *infoBuff=malloc(512*sizeof(char));
+    
+    length=sprintf(infoBuff,ANSI_COLOR_YELLOW "------------------------------\n"
     		"Device Info: %s\n"
-            "------------------------------\n"
+            "------------------------------\n"ANSI_COLOR_RESET
             "  Driver: \"%s\"\n"
             "  Card:   \"%s\"\n"
             "  Bus:    \"%s\"\n"
             "  Version: %d.%d\n"
             "  Capabilities: %08x\n"
-            "------------------------------\n"
-            "------------------------------\n",
+           ANSI_COLOR_GREEN "------------------------------\n"
+            "Format properties\n"
+            "------------------------------\n" ANSI_COLOR_CYAN
+            "Width: 		%i\n"
+            "Height:		%i\n"
+            "Buffer Format:	%s\n"
+            "------------------------------\n" ANSI_COLOR_RESET
+            ,
             dev_name,
             caps.driver,
             caps.card,
             caps.bus_info,
             (caps.version>>16)&&0xff,
             (caps.version>>24)&&0xff,
-            caps.capabilities);
-}
-//stdouta göndermek için(ipc ile gui yazarık)
-//ama şu an hexadeciamal olarak dökii
-void dumpBuffer(){
-	//bufferı yazdırıyor									
-    int i=0;
-    printf("img data size:%d bytes\n",cam_buf.bytesused);
-    
-    for(i=0;i<cam_buf.bytesused;i++){
-    	//%02x prints integer as hex
-    	printf("%02x ", buffer[i]);
-    	if ((i+1)%1280 == 0) printf("\n");
-    	i++;
-    }
-    printf("\n");
+            caps.capabilities,
+            //format properties
+            fmt.fmt.pix.width,
+            fmt.fmt.pix.height,
+            buffer_format);
+            
+            device_specs.text=infoBuff;
+            device_specs.length=length;
+            
+            for(int i=0; i<length; i++){
+            	printf("%c",infoBuff[i]);
+            }
 }
 
 int get_arg_opts(int argc,char **argv){
@@ -248,12 +276,11 @@ int get_arg_opts(int argc,char **argv){
 		if(argv[i][0]=='-'){
 			
 			switch(argv[i][1]){
-				case 'o': dumpBuffer();break;
 				case 'i': print_specs();break;
 				case 'h': printf("%s [options]\n"
                 "-h :print this and exit\n"
                 "-i :device information\n"
-                "-o :dump img to stdout\n",argv[0]);exit(0);
+                ,argv[0]);exit(0);
 			}
 		}
 	}
@@ -273,14 +300,15 @@ int activate(){
         return fd;
     }
 
-    init_camera(fd);
-    
-    init_mmap(fd);
-    
+    init_camera(fd); //prepare camera by getting info
+    print_specs();
+    init_mmap(fd);	//open memory map and concatenate to buffer
+
     return 0;
 }
 
 uint8_t* decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
+	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;
 
 	// Variables for the decompressor itself
@@ -332,7 +360,38 @@ uint8_t* decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 uint8_t* get_RGB_buff(){
 	ready_to_capture(fd);
     uint8_t *rgbBuff=decode_rgb(buffer, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+    
     return rgbBuff;
 }
 
+int dump_buffer_to_file(const char* name){
+
+	char filename[128];
+	memset(&filename,0,sizeof(filename));
+	
+	strcat(filename,"../images/");
+	write_time(filename, 0 );
+	strcat(filename,name);
+	strcat(filename,".jpg");
+	
+	int jpg_fd;
+	if(  ( jpg_fd= open(filename, O_WRONLY |O_TRUNC| O_CREAT, 0664) ) ==-1  ){
+		printf("%s->",filename);
+		perror("file open");
+		exit(jpg_fd);
+	}
+	
+	int recv=0;
+	printf("expecting %i bytes to write\n",cam_buf.bytesused);
+	do{
+		recv+=write(jpg_fd, buffer, cam_buf.bytesused);
+		printf("recv:%i\n",recv);
+	}while( recv<cam_buf.bytesused) ;
+
+	close(jpg_fd);
+	printf("write file: %s\n",filename);
+	
+	return 0;
+	
+}
 
