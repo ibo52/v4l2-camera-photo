@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.40.0 -->
+<!-- Generated with glade 3.38.2 -->
 <interface>
   <requires lib="gtk+" version="3.24"/>
   <object class="GtkTextBuffer" id="deviceInfo_textbuffer">
-    <property name="text" translatable="yes">Device</property>
+    <property name="text" translatable="yes">Dev name
+Dev specf
+Dev format</property>
   </object>
-  <object class="GtkApplicationWindow" id="window">
+  <object class="GtkApplicationWindow">
     <property name="can-focus">False</property>
-    <property name="title" translatable="yes">HaloCam - Take a Photograph</property>
     <child>
       <object class="GtkBox">
         <property name="visible">True</property>
@@ -33,8 +34,7 @@
             <property name="can-focus">False</property>
             <property name="hhomogeneous">False</property>
             <property name="vhomogeneous">False</property>
-            <property name="transition-duration">300</property>
-            <property name="transition-type">crossfade</property>
+            <property name="transition-type">slide-right</property>
             <child>
               <object class="GtkBox" id="rootLayout">
                 <property name="visible">True</property>
@@ -81,7 +81,6 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="receives-default">True</property>
-                    <signal name="clicked" handler="captureButtonClicked" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -92,7 +91,7 @@
               </object>
               <packing>
                 <property name="name">page0</property>
-                <property name="title" translatable="yes">View</property>
+                <property name="title" translatable="yes">page0</property>
               </packing>
             </child>
             <child>
@@ -115,38 +114,8 @@
               </object>
               <packing>
                 <property name="name">page1</property>
-                <property name="title" translatable="yes">Info</property>
+                <property name="title" translatable="yes">page1</property>
                 <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkScrolledWindow">
-                <property name="visible">True</property>
-                <property name="can-focus">True</property>
-                <property name="hscrollbar-policy">always</property>
-                <property name="vscrollbar-policy">always</property>
-                <property name="shadow-type">in</property>
-                <child>
-                  <object class="GtkViewport">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <child>
-                      <object class="GtkFlowBox" id="galleryFlowBox">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="homogeneous">True</property>
-                        <property name="column-spacing">1</property>
-                        <property name="row-spacing">1</property>
-                        <property name="selection-mode">none</property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-              <packing>
-                <property name="name">page2</property>
-                <property name="title" translatable="yes">Gallery</property>
-                <property name="position">2</property>
               </packing>
             </child>
           </object>

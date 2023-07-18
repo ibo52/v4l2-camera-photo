@@ -364,10 +364,9 @@ uint8_t* get_RGB_buff(){
     return rgbBuff;
 }
 
-int dump_buffer_to_file(const char* name){
+char *dump_buffer_to_file(const char* name){
 
-	char filename[128];
-	memset(&filename,0,sizeof(filename));
+	char *filename=(char*)calloc(128,sizeof(char));
 	
 	strcat(filename,"../images/");
 	write_time(filename, 0 );
@@ -391,7 +390,7 @@ int dump_buffer_to_file(const char* name){
 	close(jpg_fd);
 	printf("write file: %s\n",filename);
 	
-	return 0;
+	return filename;
 	
 }
 

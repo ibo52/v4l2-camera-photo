@@ -25,5 +25,5 @@ extern struct v4l2_requestbuffers req;
 int activate();						//activate camera
 uint8_t* decode_rgb(unsigned char *buffer,int buffsize,int width,int height);//convert camera buffer to RGB and apply filters
 uint8_t* get_RGB_buff();			//convert camera buffer to RGB and return that RGB buffer
-int dump_buffer_to_file(const char* filename);//dumps raw buffer data to file
+char* dump_buffer_to_file(const char* filename);//dumps raw buffer data to file
 #endif
