@@ -14,11 +14,82 @@ GtkBuilder		*builder;
 GtkTextBuffer 	*deviceInfo_textbuffer;
 GtkWidget		*galleryFlowBox;
 
-gboolean updateImageThread(gpointer);
-gboolean updateImage(gpointer);
-
 //https://stackoverflow.com/questions/60949269/executing-gtk-functions-from-other-threads
 static GMutex camera_access_mutex; //shared between display and capture button
+/*
+*
+*
+*/
+gboolean updateImage(gpointer buffer){
+
+	if (imageBox!=NULL || imageBoxLayout!=NULL){
+		
+		//1. move data to gdkpixbuff struct
+		GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
+			  (uint8_t*)buffer,
+			  GDK_COLORSPACE_RGB,
+			  0,
+			  8,//int bits_per_sample=
+			  fmt.fmt.pix.width,
+			  fmt.fmt.pix.height,
+			  fmt.fmt.pix.width*3,
+			  NULL,//GdkPixbufDestroyNotify destroy_fn=
+			  NULL//gpointer destroy_fn_data
+		);
+		
+		//2. scale gdkpixbuff iamge struct .ERROR-->Leads buffer overflow. Could not manage the struct
+		/*
+		pixbuff=gdk_pixbuf_scale_simple (
+			  pixbuff,
+			  gtk_widget_get_allocated_width(imageBoxLayout),
+			  gtk_widget_get_allocated_height(imageBoxLayout),
+			  GDK_INTERP_BILINEAR
+		);
+		*/
+		//3. set data to GtkImage object
+		gtk_image_set_from_pixbuf(GTK_IMAGE(imageBox), pixbuff);//set method changes imageBox ton new image  and stimulates widget
+		
+		}
+		return G_SOURCE_REMOVE;
+}
+
+gboolean updateImageThread(gpointer args){
+		
+		g_mutex_lock (&camera_access_mutex);
+
+		uint8_t* buff=get_RGB_buff();
+
+		updateImage( buff);
+		free(buff);
+		
+		g_mutex_unlock (&camera_access_mutex);
+		
+	return G_SOURCE_REMOVE;
+}
+
+gboolean captureImage(gpointer data){
+
+	g_mutex_lock (&camera_access_mutex);
+	
+	char *text=data;
+	text=dump_buffer_to_file(text);//get saved image name
+	
+	gallery__load_image(galleryFlowBox, text, 176, 176, 1);//adds image to galleryFlowBox
+	
+	g_mutex_unlock (&camera_access_mutex);
+	
+	return G_SOURCE_REMOVE;
+}
+void captureButtonClicked(GtkButton *b){
+	//dumps camera buffer that comes from cam.h to file
+
+	g_idle_add_full(
+	G_PRIORITY_HIGH_IDLE,//function priority
+	captureImage,
+	"image_shot",
+	NULL);//https://docs.gtk.org/glib/func.idle_add_full.html
+	
+}
 
 static void app_activate (GApplication *app, gpointer user_data) {
 	
@@ -56,81 +127,10 @@ int main(int argc, char **argv){
     int stat;
 
     app = gtk_application_new ("org.halosoft.halocam", G_APPLICATION_HANDLES_OPEN);
+    //g_signal_connect (app, "startup", G_CALLBACK (castart), NULL);
     g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
     stat = g_application_run (G_APPLICATION (app), argc, argv);
     g_object_unref (app);
     
 	return stat;
 }
-
-gboolean updateImageThread(gpointer args){
-		
-		g_mutex_lock (&camera_access_mutex);
-
-		uint8_t* buff=get_RGB_buff();
-
-		updateImage( buff);
-		free(buff);
-		
-		g_mutex_unlock (&camera_access_mutex);
-		
-	return G_SOURCE_REMOVE;
-}
-
-gboolean updateImage(gpointer buffer){
-
-	if (imageBox!=NULL || imageBoxLayout!=NULL){
-		
-		//1. move data to gdkpixbuff struct
-		GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
-			  (uint8_t*)buffer,
-			  GDK_COLORSPACE_RGB,
-			  0,
-			  8,//int bits_per_sample=
-			  fmt.fmt.pix.width,
-			  fmt.fmt.pix.height,
-			  fmt.fmt.pix.width*3,
-			  NULL,//GdkPixbufDestroyNotify destroy_fn=
-			  NULL//gpointer destroy_fn_data
-		);
-		
-		//2. scale gdkpixbuff iamge struct .ERROR-->Leads buffer overflow. Could not manage the struct
-		/*
-		pixbuff=gdk_pixbuf_scale_simple (
-			  pixbuff,
-			  gtk_widget_get_allocated_width(imageBoxLayout),
-			  gtk_widget_get_allocated_height(imageBoxLayout),
-			  GDK_INTERP_BILINEAR
-		);
-		*/
-		//3. set data to GtkImage object
-		gtk_image_set_from_pixbuf(GTK_IMAGE(imageBox), pixbuff);//set method changes imageBox ton new image  and stimulates widget
-		
-		}
-		return G_SOURCE_REMOVE;
-}
-
-gboolean captureImage(gpointer data){
-
-	g_mutex_lock (&camera_access_mutex);
-	
-	char *text=data;
-	text=dump_buffer_to_file(text);//get saved image name
-	
-	gallery__load_image(galleryFlowBox, text, 176, 176, 1);
-	
-	g_mutex_unlock (&camera_access_mutex);
-	
-	return G_SOURCE_REMOVE;
-}
-void captureButtonClicked(GtkButton *b){
-	//dumps camera buffer that comes from cam.h to file
-
-	g_idle_add_full(
-	G_PRIORITY_HIGH_IDLE,//function priority
-	captureImage,
-	"image_shot",
-	NULL);//https://docs.gtk.org/glib/func.idle_add_full.html
-	
-}
-

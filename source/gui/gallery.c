@@ -1,7 +1,7 @@
 #include<gtk/gtk.h>
 #include<stdint.h>
 //#include <string.h>
-
+void imageButton_clicked(GtkButton * b);
 void gallery__load_image(GtkWidget *galleryFlowBox, const char *file, int width, int height, gboolean preserve_aspect_ratio){
 		GdkPixbuf* imgBuff=gdk_pixbuf_new_from_file_at_scale(
 		file,
@@ -11,9 +11,12 @@ void gallery__load_image(GtkWidget *galleryFlowBox, const char *file, int width,
 			NULL);
 			
 		GtkWidget *w=gtk_image_new_from_pixbuf(imgBuff);
-			
-		gtk_flow_box_insert(GTK_FLOW_BOX(galleryFlowBox), w,0);
-		gtk_widget_show(w);
+		GtkWidget *button = gtk_button_new ();
+		gtk_button_set_image (GTK_BUTTON (button), w);
+		g_signal_connect(button, "clicked", G_CALLBACK(imageButton_clicked),NULL); 
+		
+		gtk_flow_box_insert(GTK_FLOW_BOX(galleryFlowBox), button,0);
+		gtk_widget_show(button);
 }
 
 void gallery__load_all_images(GtkWidget *galleryFlowBox, const char *path){
@@ -40,4 +43,11 @@ void gallery__load_all_images(GtkWidget *galleryFlowBox, const char *path){
 		}
 	}
 	g_dir_close(Dir);
+}
+
+void imageButton_clicked(GtkButton * b){
+
+	//open the image by default program
+	g_app_info_launch_default_for_uri("file:///home/ibrahim/AAATEMPHALO/v4l2-camera-photo/halocam-v4l2/images/canibram.jpg",
+	NULL,NULL);
 }

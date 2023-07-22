@@ -130,10 +130,8 @@
                   <object class="GtkViewport">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
-                    <property name="halign">start</property>
-                    <property name="valign">start</property>
                     <child>
-                      <object class="GtkFlowBox" id="galleryFlowBox">
+                      <object class="GtkFlowBox">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="homogeneous">True</property>
@@ -147,7 +145,7 @@
               </object>
               <packing>
                 <property name="name">page2</property>
-                <property name="title" translatable="yes">Gallery</property>
+                <property name="title" translatable="yes">page2</property>
                 <property name="position">2</property>
               </packing>
             </child>

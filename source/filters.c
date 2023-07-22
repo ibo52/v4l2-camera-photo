@@ -140,8 +140,7 @@ int save2jpeg(unsigned char *rgb_buffer,int buffsize,int width,int height,char *
 	jpeg_set_quality(&cinfo, quality, TRUE /* limit to baseline-JPEG values */);
 	
 	jpeg_start_compress(&cinfo, TRUE);
-
-
+	
 	int row_stride = width * 3;//3==cinfo.output_components
 
 	while (cinfo.next_scanline < cinfo.image_height) {

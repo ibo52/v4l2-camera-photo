@@ -130,8 +130,6 @@
                   <object class="GtkViewport">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
-                    <property name="halign">start</property>
-                    <property name="valign">start</property>
                     <child>
                       <object class="GtkFlowBox" id="galleryFlowBox">
                         <property name="visible">True</property>
