@@ -57,4 +57,5 @@ copyResources:
 	@echo "$(INFO_COLOR)Copying resource files"
 	@echo "======================$(RESET_COLOR)"
 	cp source/gui/halocam.glade $(PROGRAM_ROOT_DIR)/bin/halocam.glade
+	cp source/gui/gallery.glade $(PROGRAM_ROOT_DIR)/bin/gallery.glade
 	@echo "\n"

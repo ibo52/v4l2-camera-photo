@@ -109,7 +109,7 @@ static void app_activate (GApplication *app, gpointer user_data) {
 	galleryFlowBox=GTK_WIDGET(gtk_builder_get_object(builder,"galleryFlowBox"));
 	
 	g_signal_connect(window,"destroy",G_CALLBACK(gtk_main_quit),NULL);
-	
+
 	g_signal_connect(imageBox,"draw",G_CALLBACK(updateImageThread),NULL);
 	gtk_builder_connect_signals(builder,NULL);
 	//---
