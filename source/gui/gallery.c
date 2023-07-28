@@ -1,6 +1,12 @@
 #include<gtk/gtk.h>
 #include<stdint.h>
 #include "filters.h"
+#include "laplace.h"	//laplace definitions
+#include "gauss-blur.h"	//gaussian blurring definitions
+#include "conv2d.h"		//convolve definitions
+#include "normalize.h"	//convolve definitions
+#include "pad.h"		//convolve definitions
+
 GtkBuilder		*gallery__builder;
 GtkWidget		*gallery__display_window;
 GtkWidget 		*gallery__display_image;
@@ -91,6 +97,8 @@ int gallery__open_display_window( const char* file_path){
 		g_signal_connect(gallery__binaryButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		g_signal_connect(gallery__inverseButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		g_signal_connect(gallery__grayscaleButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery__gaussBlurButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery__laplaceButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		//gtk_box_set_center_widget ( GTK_BOX(box), display_image );
 	
 		gtk_widget_show_all (gallery__display_window);
@@ -116,7 +124,23 @@ void gallery__binaryButtonClicked(GtkButton *b){
 	else if(strcmp(button_name,"inverse")==0){
 		im2inverse(buff, gdk_pixbuf_get_byte_length(imgBuff) );
 	}
-	
+	else if(strcmp(button_name,"gauss blur")==0){
+		int fsize=5;
+		float fsigma=1;
+		int padsize=(fsize-1)/2;
+
+		buff=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
+		buff=gaussBlur(buff, gdk_pixbuf_get_width(imgBuff)+padsize*2, gdk_pixbuf_get_height(imgBuff)+padsize*2, fsize,fsigma);
+	}
+	else if(strcmp(button_name,"laplace")==0){
+		int fsize=3;
+		int padsize=(fsize-1)/2;
+		
+		buff=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
+		float *lapl=laplacian(buff, gdk_pixbuf_get_width(imgBuff)+padsize*2, gdk_pixbuf_get_height(imgBuff)+padsize*2);
+		
+		buff=normalize(lapl, gdk_pixbuf_get_width(imgBuff), gdk_pixbuf_get_height(imgBuff));
+	}
 	
 	GdkPixbuf *newpix=gdk_pixbuf_new_from_data (
 		  buff,
