@@ -1,22 +1,46 @@
-#include <stdint.h>//uint8_t
-#include <unistd.h>//provides access to the POSIX operating system API.
+#include <stdint.h>		//uint8_t
+#include <unistd.h>		//provides access to the POSIX operating system API.
 #include <stdlib.h>
+#include <pthread.h>
 
-float* conv2d(uint8_t *buffer,int width,int height,float* kernel,int ksize){
+#define NUM_PROCESSORS 4
+
+typedef struct conv2dThreadArguments{
+	uint8_t *buffer;	//pointer to read original buffer
+	float *processed;	//pointer to write new buffer
+	int width;			//original buffer width
+	int height;			//original buffer height
+	float* kernel;		//pointer to kernel for convole ops
+	int ksize;			//size of kernel
+}conv2dThreadArguments;
+conv2dThreadArguments GLOBAL_CONV2D_ARGS;
+
+
+//private interface for threading conv2d
+void* conv2dThread(void *offset){
 	/*
-		convoles the buffer with kernel, then returns address of filtered image
+		convoles the buffer with kernel
 	*/
+	//---GET THE ARGUMENTS------
+	conv2dThreadArguments *arguments=&GLOBAL_CONV2D_ARGS;
+	uint8_t *buffer=arguments->buffer;
+	float *apply=arguments->processed;	//get new array pointer for convoled image
+	int width=arguments->width;
+	int height=arguments->height;
+	float *kernel=arguments->kernel;
+	int ksize=arguments->ksize;
+	//---GET THE ARGUMENTS------
+	
 	//open new image array to apply filter
 	int new_w=width-ksize+1;
 	int new_h=height-ksize+1;
 	short color_=3;//RGB color array
 	
-	float *apply;//new array for filtered image
-	apply=(float*)calloc(new_w*new_h*color_ ,sizeof(float));
+	
 	
 	float SUM_OF_WEIGHTS_OF_KERNEL = kernel[ksize*ksize];
-	int i=0,j=0,idx=0,a_idx=0;
-	
+	long i=(long)offset; int j=0, idx=0, a_idx=0;
+
 	while (i<new_h){
 		
 		j=j%new_w;
@@ -65,8 +89,36 @@ float* conv2d(uint8_t *buffer,int width,int height,float* kernel,int ksize){
 			sum[2]=0;
 			j+=color_;
 		}
-		i++;
+		i+=NUM_PROCESSORS;
 	}
-	return apply;
+	//Done
+	pthread_exit( NULL ); //return from thread
 	
+}
+//public interface
+float* conv2d(uint8_t *buffer,int width,int height,float* kernel,int ksize){
+
+	int i, threadFailed;
+	pthread_t thread_id[NUM_PROCESSORS]; //open thread list
+	
+	int new_w=width-ksize+1;
+	int new_h=height-ksize+1;
+	float *apply=calloc(new_w*new_h*3 ,sizeof(float));
+	//write info to global variable
+	conv2dThreadArguments argument={buffer, apply, width, height, kernel, ksize};
+	GLOBAL_CONV2D_ARGS=argument;
+	
+	for(i=0; i<NUM_PROCESSORS; i++){
+
+		    threadFailed=pthread_create(&thread_id[i], NULL, conv2dThread, (void*)i);
+		    
+		    if(threadFailed){
+		        exit(threadFailed);
+		    }
+	}
+	for(i=0; i<NUM_PROCESSORS; i++){
+			pthread_join(thread_id[i],NULL);	//with joining threads, main waits for others to terminate.
+	}
+
+    return apply;
 }

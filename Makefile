@@ -4,7 +4,7 @@ TARGET=info
 all:info makedirs copyResources compile
 
 CC=gcc
-CLIBS=`pkg-config --libs gtk+-3.0` -ljpeg -lm
+CLIBS=`pkg-config --libs gtk+-3.0` -ljpeg -lm -pthread
 CFLAGS= -Wall -g -rdynamic `pkg-config --cflags gtk+-3.0`
 
 PROGRAM_ROOT_DIR=halocam-v4l2
