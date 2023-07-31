@@ -1,17 +1,12 @@
 #ifndef halocam_cam_
 #define halocam_cam_
 #include <stdint.h>
-#include <fcntl.h>
 #include <linux/videodev2.h>
 
 extern char *dev_name;				//camera path, default:/dev/video0 on main
 extern int fd;						//file descriptor of camera file
 extern uint8_t *buffer;				//cam output buffer as one bit each
 
-struct halocam_device_specs{		//keeps general info retrieved from device
-	char *text;
-	int length;
-};
 extern struct halocam_device_specs device_specs;
 extern struct v4l2_format fmt;		//format specs
 extern struct v4l2_buffer cam_buf;	//take camera mmap to here

@@ -51,11 +51,14 @@ makedirs:
 	mkdir -p $(PROGRAM_ROOT_DIR)/images
 	mkdir -p $(PROGRAM_ROOT_DIR)/images/ppm
 	mkdir -p $(PROGRAM_ROOT_DIR)/bin
+	mkdir -p $(PROGRAM_ROOT_DIR)/resources
+	mkdir -p $(PROGRAM_ROOT_DIR)/resources/ui
 	@echo "\n"
 	
 copyResources:
 	@echo "$(INFO_COLOR)Copying resource files"
 	@echo "======================$(RESET_COLOR)"
-	cp source/gui/halocam.glade $(PROGRAM_ROOT_DIR)/bin/halocam.glade
-	cp source/gui/gallery.glade $(PROGRAM_ROOT_DIR)/bin/gallery.glade
+	
+	cp -r source/gui/view/* $(PROGRAM_ROOT_DIR)/resources/ui
+	cp -r source/resource/* $(PROGRAM_ROOT_DIR)/resources
 	@echo "\n"

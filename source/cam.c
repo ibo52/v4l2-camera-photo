@@ -44,12 +44,6 @@ char *dev_name;				//camera path, default:/dev/video0 on main
 int fd=-1;					//file descriptor of camera file
 uint8_t *buffer;			//cam output buffer that concatenated to mmap
 
-struct halocam_device_specs{
-	char *text;
-	int length;
-};
-struct halocam_device_specs device_specs;
-
 struct v4l2_format fmt;		//format specs of dev
 struct v4l2_buffer cam_buf; //camera buffer took from device, we can also use *buffer to access RGB data
 struct v4l2_capability caps;//keep device info and capabilities
@@ -142,7 +136,7 @@ int init_camera(int fd){
     
     //set to default with queried capabilities instead above
     //https://www.kernel.org/doc/html/v4.11/media/uapi/v4l/vidioc-cropcap.html#c.v4l2_cropcap
-    set_format(840,420,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);//set_format(cropcap.bounds.width,cropcap.bounds.height,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);
+    set_format(1280,720,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);//set_format(cropcap.bounds.width,cropcap.bounds.height,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);
     return 0;
 }
 
@@ -227,10 +221,7 @@ void print_specs(){
     	pixfmt>>=8;	
     };
     
-    int length;
-    char *infoBuff=malloc(512*sizeof(char));
-    
-    length=sprintf(infoBuff,ANSI_COLOR_YELLOW "------------------------------\n"
+    printf(ANSI_COLOR_YELLOW "------------------------------\n"
     		"Device Info: %s\n"
             "------------------------------\n"ANSI_COLOR_RESET
             "  Driver: \"%s\"\n"
@@ -257,13 +248,6 @@ void print_specs(){
             fmt.fmt.pix.width,
             fmt.fmt.pix.height,
             buffer_format);
-            
-            device_specs.text=infoBuff;
-            device_specs.length=length;
-            
-            for(int i=0; i<length; i++){
-            	printf("%c",infoBuff[i]);
-            }
 }
 
 int get_arg_opts(int argc,char **argv){
@@ -381,14 +365,14 @@ char *dump_buffer_to_file(const char* name){
 	}
 	
 	int recv=0;
-	printf("expecting %i bytes to write\n",cam_buf.bytesused);
+	//printf("expecting %i bytes to write\n",cam_buf.bytesused);
 	do{
 		recv+=write(jpg_fd, buffer, cam_buf.bytesused);
 		printf("recv:%i\n",recv);
 	}while( recv<cam_buf.bytesused) ;
 
 	close(jpg_fd);
-	printf("write file: %s\n",filename);
+	//printf("write file: %s\n",filename);
 	
 	return filename;
 	

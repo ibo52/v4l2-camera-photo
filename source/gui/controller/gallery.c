@@ -15,6 +15,7 @@ GtkWidget 		*gallery__gaussBlurButton;
 GtkWidget 		*gallery__inverseButton;
 GtkWidget 		*gallery__binaryButton;
 GtkWidget 		*gallery__grayscaleButton;
+GtkWidget 		*gallery__padButton;
 
 void gallery__binaryButtonClicked(GtkButton *b);
 int gallery__open_display_window( const char* file_path);
@@ -74,7 +75,7 @@ int gallery__open_display_window( const char* file_path){
 		gtk_window_close (GTK_WINDOW(gallery__display_window));
 	}
 		
-		gallery__builder=gtk_builder_new_from_file("gallery.glade");
+		gallery__builder=gtk_builder_new_from_file("../resources/ui/gallery.glade");
 	
 		gallery__display_window=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"gallery__display_window"));	
 		gallery__laplaceButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"laplaceButton"));	
@@ -83,7 +84,7 @@ int gallery__open_display_window( const char* file_path){
 		gallery__binaryButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"binaryButton"));	
 		gallery__grayscaleButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"grayscaleButton"));	
 		gallery__display_image=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"gallery__display_image"));	
-
+		gallery__padButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"padButton"));
 
 		GdkPixbuf* imgBuff=gdk_pixbuf_new_from_file_at_scale(
 		file_path,
@@ -99,6 +100,7 @@ int gallery__open_display_window( const char* file_path){
 		g_signal_connect(gallery__grayscaleButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		g_signal_connect(gallery__gaussBlurButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		g_signal_connect(gallery__laplaceButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery__padButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		//gtk_box_set_center_widget ( GTK_BOX(box), display_image );
 	
 		gtk_widget_show_all (gallery__display_window);
@@ -110,8 +112,9 @@ void gallery__binaryButtonClicked(GtkButton *b){
 	//g_app_info_launch_default_for_uri("file:///",NULL,NULL);//open system-default image viewer
 	const char *button_name=gtk_button_get_label(b);
 	
-	
 	GdkPixbuf* imgBuff=gtk_image_get_pixbuf ( GTK_IMAGE(gallery__display_image) );
+	int new_width=gdk_pixbuf_get_width(imgBuff), new_height=gdk_pixbuf_get_height(imgBuff);
+	g_print("new size:%dx%d",new_width,new_height);
 	
 	guchar* buff=gdk_pixbuf_get_pixels(imgBuff);
 	
@@ -141,15 +144,24 @@ void gallery__binaryButtonClicked(GtkButton *b){
 		
 		buff=normalize(lapl, gdk_pixbuf_get_width(imgBuff), gdk_pixbuf_get_height(imgBuff));
 	}
+	else if(strcmp(button_name,"zero pad")==0){
+		int fsize=3;
+		int padsize=(fsize-1)/2;
+		
+		buff=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
+		
+		new_width+=2*padsize;
+		new_height+=2*padsize;
+	}
 	
 	GdkPixbuf *newpix=gdk_pixbuf_new_from_data (
 		  buff,
 		  GDK_COLORSPACE_RGB,
 		  0,
 		  gdk_pixbuf_get_bits_per_sample(imgBuff),
-		  gdk_pixbuf_get_width(imgBuff),
-		  gdk_pixbuf_get_height(imgBuff),
-		  gdk_pixbuf_get_rowstride(imgBuff),
+		  new_width,
+		  new_height,
+		  new_width*3,
 		  NULL,NULL
 	);
 	
