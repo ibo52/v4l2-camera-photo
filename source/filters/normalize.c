@@ -22,7 +22,7 @@ uint8_t *normalize(float *buffer,int width,int height){
 		}
 	}
 	
-	printf("min:%f max:%f\n",min,max);
+	//printf("min:%f max:%f\n",min,max);
 	
 	for(int i=0; i<width*height*3; i++){
 		new_buffer[i]=(buffer[i]-min)*(newMax-newMin)/(max-min)+newMin;

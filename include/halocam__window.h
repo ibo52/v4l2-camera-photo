@@ -1,5 +1,5 @@
-#ifndef halocam__info_labels
-#define halocam__info_labels
+#ifndef halocam_window_h
+#define halocam_window_h
 
 #include<gtk/gtk.h>
 

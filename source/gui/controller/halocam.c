@@ -6,7 +6,7 @@
 #include "halocam__window.h"
 
 int main(int argc, char **argv){
-	activate(); //initialize camera
+	camera__activate(); 		//initialize camera
 
 	GtkApplication *app;
     int stat;

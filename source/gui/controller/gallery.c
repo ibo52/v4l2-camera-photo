@@ -19,7 +19,9 @@ GtkWidget 		*gallery__padButton;
 
 void gallery__binaryButtonClicked(GtkButton *b);
 int gallery__open_display_window( const char* file_path);
-
+/*
+*
+*/
 void imageButton_clicked(GtkButton *b){
 		gallery__open_display_window( gtk_widget_get_tooltip_text(  GTK_WIDGET(b) ) );
 }
@@ -114,7 +116,6 @@ void gallery__binaryButtonClicked(GtkButton *b){
 	
 	GdkPixbuf* imgBuff=gtk_image_get_pixbuf ( GTK_IMAGE(gallery__display_image) );
 	int new_width=gdk_pixbuf_get_width(imgBuff), new_height=gdk_pixbuf_get_height(imgBuff);
-	g_print("new size:%dx%d",new_width,new_height);
 	
 	guchar* buff=gdk_pixbuf_get_pixels(imgBuff);
 	

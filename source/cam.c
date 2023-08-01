@@ -21,7 +21,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/videodev2.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -40,9 +39,13 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
-char *dev_name;				//camera path, default:/dev/video0 on main
-int fd=-1;					//file descriptor of camera file
-uint8_t *buffer;			//cam output buffer that concatenated to mmap
+typedef struct camera{
+	char *name;				//camera path, default:/dev/video0 on main
+	int fd;					//file descriptor of camera file
+	uint8_t *buffer;		//cam output buffer that concatenated to mmap
+}camera; 
+
+camera Camera;
 
 struct v4l2_format fmt;		//format specs of dev
 struct v4l2_buffer cam_buf; //camera buffer took from device, we can also use *buffer to access RGB data
@@ -75,14 +78,14 @@ void set_format(int width,int height,int pixfmt,int pixfield){
                 fmt.fmt.pix.field       = pixfield;//V4L2_FIELD_INTERLACED;
     
 
-				if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)){
+				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
 					fprintf(stdout,"Setting Pixel Format: err %d:%s\n",errno,strerror(errno));
 					exit(errno);
 				}
     }else{
 				//get default camera formats to fmt struct
 			
-				if (-1 == xioctl(fd, VIDIOC_G_FMT, &fmt)){
+				if (-1 == xioctl(Camera.fd, VIDIOC_G_FMT, &fmt)){
 					perror("get default dev format");
 					exit( errno );
 				}
@@ -91,7 +94,7 @@ void set_format(int width,int height,int pixfmt,int pixfield){
     printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
-int init_camera(int fd){
+static int init_camera(int fd){
 
     CLEAR(cropcap);	//clear data structs
     CLEAR(fmt);
@@ -101,7 +104,7 @@ int init_camera(int fd){
     //request capabilities of device
     if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps) ) {
         if (EINVAL == errno) {
-            fprintf(stdout,"%s is not a V4L2 device: err%d:%s\n",dev_name,errno,strerror(errno));
+            fprintf(stdout,"%s is not a V4L2 device: err%d:%s\n",Camera.name, errno, strerror(errno));
             return errno;
         } else {
             fprintf(stdout,"query device capabilities err %d:%s",errno,strerror(errno) );
@@ -140,7 +143,7 @@ int init_camera(int fd){
     return 0;
 }
 
-int init_mmap(int fd)
+static int init_mmap(int fd)
 {
     CLEAR(req);
     req.count = 1;
@@ -164,12 +167,12 @@ int init_mmap(int fd)
         return 1;
     }
     
-    buffer = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
+    Camera.buffer = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
 
     return 0;
 }
 
-int ready_to_capture(int fd)
+static int ready_to_capture(int fd)
 {
     //clear the struct which keep image
     CLEAR(cam_buf);
@@ -237,7 +240,7 @@ void print_specs(){
             "Buffer Format:	%s\n"
             "------------------------------\n" ANSI_COLOR_RESET
             ,
-            dev_name,
+            Camera.name,
             caps.driver,
             caps.card,
             caps.bus_info,
@@ -271,27 +274,26 @@ int get_arg_opts(int argc,char **argv){
         return 0;
 }
 
-int activate(){
+int camera__activate(){
 	//try to open camera as read-write mode
-    printf("-*- halocam -*-\n");
-    dev_name="/dev/video0";
+    Camera.name="/dev/video0";
     
-    if( (fd = open(dev_name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
+    if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
         char *msg=(char*)calloc(32,sizeof(char));
-        sprintf(msg,"Could not open '%s'",dev_name);
+        sprintf(msg,"Could not open '%s'",Camera.name);
         perror(msg);
-        return fd;
+        return Camera.fd;
     }
 
-    init_camera(fd); //prepare camera by getting info
+    init_camera(Camera.fd); //prepare camera by getting info
     print_specs();
-    init_mmap(fd);	//open memory map and concatenate to buffer
+    init_mmap(Camera.fd);	//open memory map and concatenate to buffer
 
     return 0;
 }
 
-uint8_t* decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
+uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;
 
@@ -341,14 +343,14 @@ uint8_t* decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	return processed_buffer;
 	
 }
-uint8_t* get_RGB_buff(){
-	ready_to_capture(fd);
-    uint8_t *rgbBuff=decode_rgb(buffer, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+uint8_t* camera__get_RGB_buff(){
+	ready_to_capture(Camera.fd);
+    uint8_t *rgbBuff=camera__decode_rgb(Camera.buffer, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
     
     return rgbBuff;
 }
 
-char *dump_buffer_to_file(const char* name){
+char *camera__dump_buffer_to_file(const char* name){
 
 	char *filename=(char*)calloc(128,sizeof(char));
 	
@@ -367,8 +369,8 @@ char *dump_buffer_to_file(const char* name){
 	int recv=0;
 	//printf("expecting %i bytes to write\n",cam_buf.bytesused);
 	do{
-		recv+=write(jpg_fd, buffer, cam_buf.bytesused);
-		printf("recv:%i\n",recv);
+		recv+=write(jpg_fd, Camera.buffer, cam_buf.bytesused);
+		//printf("recv:%i\n",recv);
 	}while( recv<cam_buf.bytesused) ;
 
 	close(jpg_fd);

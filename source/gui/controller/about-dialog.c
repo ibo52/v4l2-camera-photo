@@ -1,11 +1,5 @@
 #include<gtk/gtk.h>
 #include<stdint.h>
-#include "filters.h"
-#include "laplace.h"	//laplace definitions
-#include "gauss-blur.h"	//gaussian blurring definitions
-#include "conv2d.h"		//convolve definitions
-#include "normalize.h"	//convolve definitions
-#include "pad.h"		//convolve definitions
 
 GtkBuilder		*aboutDialog__builder;
 GtkWidget		*aboutDialog__display_window;

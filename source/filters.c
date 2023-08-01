@@ -1,12 +1,9 @@
 #include <fcntl.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include<string.h>
+#include <stdio.h>
+#include<string.h>		//strcat
 #include <jpeglib.h>	//to decode jpg image buffer
 #include<time.h>		//timestamp for imagenames
-#include <math.h>		//pow() func; M_PI, M_E constants
 
 //---USER DEFINED HEADER FILES---
 #include "filters.h"//function definitions of this file

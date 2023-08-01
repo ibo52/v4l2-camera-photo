@@ -1,5 +1,5 @@
-#ifndef halocam__gui__about_dialog
-#define halocam__gui__about_dialog
+#ifndef halocam_gui_about_dialog
+#define halocam_gui_about_dialog
 #include<gtk/gtk.h>
 #include<stdint.h>
 
