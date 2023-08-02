@@ -47,11 +47,13 @@ typedef struct camera{
 
 camera Camera;
 
-struct v4l2_format fmt;		//format specs of dev
-struct v4l2_buffer cam_buf; //camera buffer took from device, we can also use *buffer to access RGB data
-struct v4l2_capability caps;//keep device info and capabilities
-struct v4l2_cropcap cropcap;//default cropping capabilities
-struct v4l2_crop crop;		//set crop settings
+struct v4l2_format fmt;					//format specs of dev
+struct v4l2_fmtdesc fmt_desc;			//default format desc
+struct v4l2_frmsizeenum frame_size;		//enumerate available framesizes for camera formats
+struct v4l2_buffer cam_buf; 			//camera buffer took from device, we can also use *buffer to access RGB data
+struct v4l2_capability caps;			//keep device info and capabilities
+struct v4l2_cropcap cropcap;			//default cropping capabilities
+struct v4l2_crop crop;					//set crop settings
 struct v4l2_requestbuffers req;
 /*
  *
@@ -68,8 +70,45 @@ int xioctl(int fh, int request, void *arg){
     return r;
 }
 
+static int get_frameSize(int pixelformat,int all_sizes){
+	CLEAR(frame_size);
+	frame_size.type=V4L2_FRMSIZE_TYPE_DISCRETE;
+	frame_size.pixel_format=pixelformat;		//calculate frame sizes for given pixel format
+	
+	while (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FRAMESIZES, &frame_size)){
+
+			//printf("\t\tFrame Size:%u %u\n", frame_size.discrete.width, frame_size.discrete.height);
+			if(all_sizes)
+				frame_size.index++;
+			else
+				break;
+	}
+	
+	return 0;	
+}
+
+static int get_format(int all_formats){	//if 1: get all formats; else get first format
+	CLEAR(fmt_desc);
+	fmt_desc.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	
+	while (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FMT, &fmt_desc)){
+
+			//printf("Format:%c%c%c%c(%s)\n", fmt_desc.pixelformat&0xff, (fmt_desc.pixelformat>>8)&0xff, (fmt_desc.pixelformat>>16)&0xff, (fmt_desc.pixelformat>>24)&0xff, fmt_desc.description);
+			get_frameSize(fmt_desc.pixelformat,0);
+			
+			if(all_formats)
+				fmt_desc.index++;
+			else
+				break;
+	}
+	
+	return 0;		
+}
+
 void set_format(int width,int height,int pixfmt,int pixfield){
 	//Custom camera resolution
+	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	get_format(0);	//dump default format options to frame_size
 	
 	if(  (width | height| pixfmt | pixfield)!=0  ){
                 fmt.fmt.pix.width       = width;
@@ -79,19 +118,22 @@ void set_format(int width,int height,int pixfmt,int pixfield){
     
 
 				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
-					fprintf(stdout,"Setting Pixel Format: err %d:%s\n",errno,strerror(errno));
+					perror("Setting Pixel Format");
 					exit(errno);
 				}
-    }else{
+    }else{		//Set default best settings by querying device
+    			fmt.fmt.pix.width       = frame_size.discrete.width;
+                fmt.fmt.pix.height      = frame_size.discrete.height;
+                fmt.fmt.pix.pixelformat = frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
+
 				//get default camera formats to fmt struct
-				printf("def formats sdpecs\n");
-				if (-1 == xioctl(Camera.fd, VIDIOC_G_FMT, &fmt)){
-					perror("get default dev format");
+				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
+					perror("Get Default Pixel Format");
 					exit( errno );
 				}
     }
 
-    printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
+    //printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
 static int init_camera(int fd){
@@ -121,25 +163,25 @@ static int init_camera(int fd){
 
         if (-1 == xioctl(fd, VIDIOC_S_CROP, &crop)) {
             switch (errno) {
+            case ENODATA:
+                perror("Cropping is not supported");
+                break;
             case EINVAL:
-                fprintf(stdout,"cropping not supported (ignored)\n");
+                perror("ioctl parameters are (possibly) invalid or cropping is not supported");
                 break;
             default:
-                fprintf(stdout,"VIDIOC_S_CROP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
+                perror("VIDIOC_S_CROP error: (errors ignored)");
                 break;
             }
         }
+        //printf("cropcap bounds: %d %d %d %d \n", cropcap.bounds.left, cropcap.bounds.top, cropcap.bounds.width, cropcap.bounds.height);
     } else {
-        fprintf(stdout,"VIDIOC_CROPCAP error:%d(%s) (errors ignored)\n",errno,strerror(errno));
+        perror("VIDIOC_CROPCAP error(errors ignored):");
     }
 
     /*request FORMAT SETTİNGS */
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.pixelformat=V4L2_PIX_FMT_RGB24;
-    
-    //set to default with queried capabilities instead above
     //https://www.kernel.org/doc/html/v4.11/media/uapi/v4l/vidioc-cropcap.html#c.v4l2_cropcap
-    set_format(1280,720,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);
+    set_format(0,0,0,0);//automaticly format to default best format
     return 0;
 }
 
@@ -237,7 +279,7 @@ void print_specs(){
             "------------------------------\n" ANSI_COLOR_CYAN
             "Width: 		%i\n"
             "Height:		%i\n"
-            "Buffer Format:	%s\n"
+            "Buffer Format:	%s(%s)\n"
             "------------------------------\n" ANSI_COLOR_RESET
             ,
             Camera.name,
@@ -249,7 +291,7 @@ void print_specs(){
             //format properties
             fmt.fmt.pix.width,
             fmt.fmt.pix.height,
-            buffer_format);
+            buffer_format,fmt_desc.description);
 }
 
 int get_arg_opts(int argc,char **argv){
@@ -279,7 +321,7 @@ int camera__activate(){
     
     if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
-        char *msg=(char*)calloc(32,sizeof(char));
+        char msg[64]={'0'};
         sprintf(msg,"Could not open '%s'",Camera.name);
         perror(msg);
         return Camera.fd;

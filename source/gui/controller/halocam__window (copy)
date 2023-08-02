@@ -310,12 +310,9 @@ static GMutex camera_access_mutex; //shared between display and capture button
 *
 *
 */
-gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
+gboolean updateImage(gpointer buffer){
 
-	g_mutex_lock (&camera_access_mutex);
-	
 	if (imageBox!=NULL || imageBoxLayout!=NULL){
-		uint8_t* buffer=camera__get_RGB_buff();
 		
 		//1. move data to gdkpixbuff struct
 		GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
@@ -339,19 +336,25 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 		);
 
 		//3. set data to GtkImage object
-		//gtk_image_set_from_pixbuf(GTK_IMAGE(imageBox), pixbuff_scaled);//set method changes imageBox ton new image  and stimulates widget
-		gdk_cairo_set_source_pixbuf(cr, pixbuff_scaled, 0, 0);
-		cairo_paint(cr);
-		
-		//last step
+		gtk_image_set_from_pixbuf(GTK_IMAGE(imageBox), pixbuff_scaled);//set method changes imageBox ton new image  and stimulates widget
 		g_object_unref( pixbuff_scaled );  //free pixbuff memory
-		free(buffer);						   //free buffer
-		
-		gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(imageBoxLayout),gtk_widget_get_allocated_height(imageBoxLayout));//send draw signal
-		g_mutex_unlock (&camera_access_mutex);
 
 		}
 		return G_SOURCE_REMOVE;
+}
+
+gboolean updateImageThread(gpointer args){
+		
+		g_mutex_lock (&camera_access_mutex);
+
+		uint8_t* buff=camera__get_RGB_buff();
+
+		updateImage( buff);
+		free(buff);
+		
+		g_mutex_unlock (&camera_access_mutex);
+		
+	return G_SOURCE_REMOVE;
 }
 
 gboolean captureImage(gpointer data){
@@ -400,7 +403,7 @@ void app_activate (GApplication *app, gpointer user_data) {
 	
 	g_signal_connect(window,"destroy",G_CALLBACK(gtk_main_quit),NULL);
 
-	g_signal_connect(imageBox,"draw",G_CALLBACK(updateImage),NULL);
+	g_signal_connect(imageBox,"draw",G_CALLBACK(updateImageThread),NULL);
 	gtk_builder_connect_signals(builder,NULL);
 	//---
 	gallery__load_all_images(galleryFlowBox, "../images/");

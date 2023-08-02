@@ -10,11 +10,13 @@ typedef struct camera{
 }camera; 
 extern struct camera Camera;		
 
-extern struct v4l2_format fmt;		//format specs
-extern struct v4l2_buffer cam_buf;	//take camera mmap to here
-extern struct v4l2_capability caps;	//keep device capabilities
-extern struct v4l2_cropcap cropcap;	//default cropping capabilities
-extern struct v4l2_crop crop;		//set crop settings
+extern struct v4l2_format fmt;			//format specs
+extern struct v4l2_fmtdesc fmt_desc;	//default format desc
+extern struct v4l2_frmsizeenum frame_size;//enumerate available framesizes for camera formats
+extern struct v4l2_buffer cam_buf;		//take camera mmap to here
+extern struct v4l2_capability caps;		//keep device capabilities
+extern struct v4l2_cropcap cropcap;		//default cropping capabilities
+extern struct v4l2_crop crop;			//set crop settings
 extern struct v4l2_requestbuffers req;
 /*
  *  
