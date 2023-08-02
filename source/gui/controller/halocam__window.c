@@ -27,6 +27,7 @@ GtkWidget 		*info__caps_label;
 GtkWidget 		*info__buff_width;
 GtkWidget 		*info__buff_height;
 GtkWidget 		*info__buff_format;
+GtkWidget 		*info__buff_colorspace;
 GtkWidget		*info__device_path;
 GtkWidget		*info__caps_listBox;
 GtkWidget		*info__caps_extra_field;
@@ -44,9 +45,8 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 	PangoAttrList* Attrs=pango_attr_list_copy(baseAttrs);
 	pango_attr_list_insert(Attrs, pango_attr_foreground_new(0,32501,42501));
 	
-	g_print("dev meta cap: %x  %x",caps.capabilities, caps.device_caps);
 	if( (cap & 0x1)==0x1){
-		temp=gtk_label_new("Video Capture Support(single-planar API)");
+		temp=gtk_label_new("Video Capture(single-planar API)");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
@@ -54,16 +54,80 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_widget_set_visible(temp, 1);
 	}
 	if( (cap & 0x2)==0x2){
-		temp=gtk_label_new("Video Output Support(single-planar API)");
+		temp=gtk_label_new("Video Output(single-planar API)");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	
+	if( (cap & 0x4)==0x4){
+		temp=gtk_label_new("Video Overlay");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	if( (cap & 0x10)==0x10){
+		temp=gtk_label_new("Raw VBI");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	if( (cap & 0x20)==0x20){
+		temp=gtk_label_new("Raw VBI Output");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	if( (cap & 0x40)==0x40){
+		temp=gtk_label_new("Sliced VBI Capture");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	if( (cap & 0x80)==0x80){
+		temp=gtk_label_new("Sliced VBI Output");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	//------------------------
+	if( ((cap>>16) & 0x01)==0x01){
+		temp=gtk_label_new("Has tuner(s) to demodulate a RF signal");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
 	if( ((cap>>16) & 0x02)==0x02){
-		temp=gtk_label_new("Audio Capture Support");
+		temp=gtk_label_new("Audio I/O");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	if( ((cap>>16) & 0x04)==0x04){
+		temp=gtk_label_new("This is a radio recevier");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	if( ((cap>>16) & 0x08)==0x08){
+		temp=gtk_label_new("Has modulator(s) to emit RF signals");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
@@ -71,7 +135,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_widget_set_visible(temp, 1);
 	}
 	if( ((cap>>16) & 0x10)==0x10){
-		temp=gtk_label_new("Software Defined Radio(SDR) Support");
+		temp=gtk_label_new("Software Defined Radio(SDR)");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
@@ -79,16 +143,24 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_widget_set_visible(temp, 1);
 	}
 	if( ((cap>>16) & 0x20)==0x20){
-		temp=gtk_label_new("Extended Pix Format Support");
+		temp=gtk_label_new("Extended Pixel Format");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	
+	if( ((cap>>16) & 0x80)==0x80){
+		temp=gtk_label_new("Metadata Capture");
+		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
+		gtk_widget_set_halign (temp, GTK_ALIGN_END);
+		
+		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+		gtk_widget_set_visible(temp, 1);
+	}
+	//---------------------------------
 	if( ((cap>>24) & 0x1)==0x01){
-		temp=gtk_label_new(" Read/Write I/O Support");
+		temp=gtk_label_new(" Read/Write I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
@@ -96,7 +168,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_widget_set_visible(temp, 1);
 	}
 	if( ((cap>>24) & 0x2)==0x02){
-		temp=gtk_label_new(" asynchronous I/O Support");
+		temp=gtk_label_new("Asynchronous I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
@@ -104,7 +176,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_widget_set_visible(temp, 1);
 	}
 	if( ((cap>>24) & 0x4)==0x04){
-		temp=gtk_label_new("streaming I/O Support");
+		temp=gtk_label_new("Streaming I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		
@@ -125,7 +197,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		pango_attr_list_insert(Attrs2, pango_attr_foreground_new(0,55535,50706));
 		
 		//set metadata label
-		temp=gtk_label_new("Metadata Capture");
+		temp=gtk_label_new("Individual Device Specs");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs2);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
@@ -167,6 +239,8 @@ int halocam__info_labels__activate(GtkBuilder		*builder){
 	info__buff_width=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_width"));
 	info__buff_height=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_height"));
 	info__buff_format=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_format"));
+	info__buff_colorspace=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_colorspace"));
+	
 	info__caps_listBox=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_listBox"));
 	info__caps_extra_field=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_extra_field"));
 	/*
@@ -184,7 +258,7 @@ int halocam__info_labels__activate(GtkBuilder		*builder){
 	sprintf(temp, "%s", caps.bus_info);
 	gtk_label_set_text(GTK_LABEL(info__bus_label), temp);
 	
-	sprintf(temp, "%d.%d",(caps.version>>16)&&0xff, (caps.version>>24)&&0xff);
+	sprintf(temp, "%u.%u.%u",(caps.version>>16)&0xff, (caps.version>>8)&0xff, caps.version&0xff);
 	gtk_label_set_text(GTK_LABEL(info__version_label), temp);
 	
 	sprintf(temp, "%08x", caps.capabilities);
@@ -198,6 +272,28 @@ int halocam__info_labels__activate(GtkBuilder		*builder){
 	
 	sprintf(temp, "%c%c%c%c", fmt.fmt.pix.pixelformat&0xff,  (fmt.fmt.pix.pixelformat>>8)&0xff,  (fmt.fmt.pix.pixelformat>>16)&0xff,  (fmt.fmt.pix.pixelformat>>24)&0xff);
 	gtk_label_set_text(GTK_LABEL(info__buff_format), temp);
+	
+	//append colorspace string
+	switch(fmt.fmt.pix.colorspace){
+	
+			case V4L2_COLORSPACE_SRGB:{
+				sprintf(temp, "sRGB");
+				break;
+			}
+			case V4L2_COLORSPACE_RAW:{
+				sprintf(temp, "RAW");
+				break;
+			}
+			case V4L2_COLORSPACE_JPEG:{
+				sprintf(temp, "JPEG");
+				break;
+			}
+			default:{
+				sprintf(temp, "%u",fmt.fmt.pix.colorspace);
+				break;
+			}	
+	}
+	gtk_label_set_text(GTK_LABEL(info__buff_colorspace), temp);
 	
 	parse_caps(caps.capabilities, GTK_BOX(info__caps_listBox));
 

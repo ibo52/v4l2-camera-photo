@@ -84,7 +84,7 @@ void set_format(int width,int height,int pixfmt,int pixfield){
 				}
     }else{
 				//get default camera formats to fmt struct
-			
+				printf("def formats sdpecs\n");
 				if (-1 == xioctl(Camera.fd, VIDIOC_G_FMT, &fmt)){
 					perror("get default dev format");
 					exit( errno );
@@ -139,7 +139,7 @@ static int init_camera(int fd){
     
     //set to default with queried capabilities instead above
     //https://www.kernel.org/doc/html/v4.11/media/uapi/v4l/vidioc-cropcap.html#c.v4l2_cropcap
-    set_format(1280,720,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);//set_format(cropcap.bounds.width,cropcap.bounds.height,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);
+    set_format(1280,720,V4L2_PIX_FMT_RGB24,V4L2_FIELD_INTERLACED);
     return 0;
 }
 
@@ -230,7 +230,7 @@ void print_specs(){
             "  Driver: \"%s\"\n"
             "  Card:   \"%s\"\n"
             "  Bus:    \"%s\"\n"
-            "  Version: %d.%d\n"
+            "  Version: %u.%u.%u\n"
             "  Capabilities: %08x\n"
            ANSI_COLOR_GREEN "------------------------------\n"
             "Format properties\n"
@@ -244,8 +244,7 @@ void print_specs(){
             caps.driver,
             caps.card,
             caps.bus_info,
-            (caps.version>>16)&&0xff,
-            (caps.version>>24)&&0xff,
+            (caps.version>>16)&0xff, (caps.version>>8)&0xff, caps.version&0xff,
             caps.capabilities,
             //format properties
             fmt.fmt.pix.width,

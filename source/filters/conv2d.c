@@ -1,9 +1,11 @@
+/*
+		convoles the buffer with kernel
+	*/
 #include <stdint.h>		//uint8_t
 #include <unistd.h>		//provides access to the POSIX operating system API.
 #include <stdlib.h>
 #include <pthread.h>
-
-#define NUM_PROCESSORS 4
+#include "utils.h"
 
 typedef struct conv2dThreadArguments{
 	uint8_t *buffer;	//pointer to read original buffer
@@ -18,9 +20,7 @@ conv2dThreadArguments GLOBAL_CONV2D_ARGS;
 
 //private interface for threading conv2d
 void* conv2dThread(void *offset){
-	/*
-		convoles the buffer with kernel
-	*/
+
 	//---GET THE ARGUMENTS------
 	conv2dThreadArguments *arguments=&GLOBAL_CONV2D_ARGS;
 	uint8_t *buffer=arguments->buffer;
@@ -98,7 +98,7 @@ void* conv2dThread(void *offset){
 //public interface
 float* conv2d(uint8_t *buffer,int width,int height,float* kernel,int ksize){
 
-	int i, threadFailed;
+	uintptr_t i, threadFailed;
 	pthread_t thread_id[NUM_PROCESSORS]; //open thread list
 	
 	int new_w=width-ksize+1;
