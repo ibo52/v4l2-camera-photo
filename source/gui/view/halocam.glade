@@ -628,6 +628,17 @@
                         <signal name="activate" handler="ShowAboutWindowButton_activate_cb" swapped="no"/>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="ShowPreferencesWindowButton">
+                        <property name="label">gtk-preferences</property>
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="right-justified">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="always-show-image">True</property>
+                        <signal name="activate" handler="ShowPreferencesWindowButton_activate_cb" swapped="no"/>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>

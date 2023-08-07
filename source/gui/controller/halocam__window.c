@@ -6,6 +6,7 @@
 #include "gallery.h"
 #include "filters.h"
 #include "about-dialog.h"
+#include "camera_settings-dialog.h"
 #include "halocam__window.h"
 
 //---CAMERA PAGE WİDGETS---
@@ -196,7 +197,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		PangoAttrList* Attrs2=pango_attr_list_copy(Attrs);
 		pango_attr_list_insert(Attrs2, pango_attr_foreground_new(0,55535,50706));
 		
-		//set metadata label
+		//set capability labels for just opened devie
 		temp=gtk_label_new("Individual Device Specs");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs2);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -379,7 +380,10 @@ void captureButtonClicked(GtkButton *b){
 }
 
 void ShowAboutWindowButton_activate_cb(GtkMenuItem *item){
-	aboutDialog__open_display_window();g_print("disp oopened\n");
+	aboutDialog__open_display_window();
+}
+void ShowPreferencesWindowButton_activate_cb(GtkMenuItem *item){
+	cameraSettingsDialog__open_display_window();
 }
 
 void app_activate (GApplication *app, gpointer user_data) {

@@ -43,6 +43,7 @@ typedef struct camera{
 	char *name;				//camera path, default:/dev/video0 on main
 	int fd;					//file descriptor of camera file
 	uint8_t *buffer;		//cam output buffer that concatenated to mmap
+	int IO_METHOD;			//mmap, userptr or R/W
 }camera; 
 
 camera Camera;
@@ -60,6 +61,8 @@ struct v4l2_requestbuffers req;
  * 
  *  
 */
+struct v4l2_queryctrl queryctrl;
+struct v4l2_querymenu querymenu;
 int xioctl(int fh, int request, void *arg){
     int r;
 
@@ -105,6 +108,97 @@ static int get_format(int all_formats){	//if 1: get all formats; else get first 
 	return 0;		
 }
 
+static int get_parm(){	//if 1: get all formats; else get first format
+	struct v4l2_streamparm param;
+	CLEAR(param);
+	param.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	
+	if (-1 == xioctl(Camera.fd, VIDIOC_G_PARM, &param)) {
+    	perror("VIDIOC_G_PARM");
+   		return -1;
+	}
+	printf("Camera Supports %i frames per %i seconds\n", param.parm.capture.timeperframe.denominator , param.parm.capture.timeperframe.numerator);
+	return 0;		
+}
+
+void camera__control__set(int ctrl_id, int val){
+	struct v4l2_queryctrl queryctrl;
+	struct v4l2_control control;
+	
+	CLEAR(queryctrl);CLEAR(control);
+	queryctrl.id = ctrl_id;
+	
+	if (-1 == xioctl(Camera.fd, VIDIOC_QUERYCTRL, &queryctrl)) {
+			if (errno != EINVAL) {
+				perror("VIDIOC_QUERYCTRL");
+				exit(EXIT_FAILURE);
+			} else {
+				printf("Control \'%08x\' is NOT supported!\n", ctrl_id);
+			}
+	
+	} else if ( (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) ) {
+    		printf("Control \'%08x\' is NOT supported!\n", ctrl_id);
+	
+	}else if ( (queryctrl.flags & V4L2_CTRL_FLAG_INACTIVE) ) {
+    		printf("Control \'%08x\' is inactive.\n", ctrl_id);
+	
+	}else if ((queryctrl.flags & V4L2_CTRL_FLAG_READ_ONLY) ) {
+    		printf("Control \'%08x\' is read only.\n", ctrl_id);
+	
+	} else {
+
+			control.id = ctrl_id;
+			control.value = val;//queryctrl.default_value;
+			//printf("queryctrl value set to %i\n",control.value);
+			
+			if (-1 == xioctl(Camera.fd, VIDIOC_S_CTRL, &control)) {
+				fprintf(stdout, "VIDIOC_S_CTRL error for Ctrl id:%08x: %s\n", ctrl_id, strerror(errno));
+				exit(EXIT_FAILURE);
+			}
+	}
+}
+
+static void enumerate_menu(void)
+{
+    printf("  Menu items:\n");
+
+    CLEAR(querymenu);
+    querymenu.id = queryctrl.id;
+
+    for (querymenu.index = queryctrl.minimum;
+         querymenu.index <= queryctrl.maximum;
+         querymenu.index++) {
+        if (0 == ioctl(Camera.fd, VIDIOC_QUERYMENU, &querymenu)) {
+            printf("  %s\n", querymenu.name);
+        }
+    }
+}
+
+int camera__control__get_ctrl(){
+	/*
+	*	Get control data to queryctrl struct. queryctrl.id=V4L2_CID_BASE have to set inside caller function.
+	*/
+	int retval;
+	
+	retval=xioctl(Camera.fd, VIDIOC_QUERYCTRL, &queryctrl);
+	if (0 == retval ) {
+        	//values can be accessed by queryctrl struct
+        	//printf("Control %s  min:%i max:%i default:%i\n", queryctrl.name, queryctrl.minimum, queryctrl.maximum, queryctrl.default_value);
+        	//camera__control__set(queryctrl.id ,queryctrl.default_value);//reset to default parameters on init
+        	queryctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
+
+	}
+	else if ( errno != EINVAL ) {
+		perror("VIDIOC_QUERYCTRL");
+		exit(errno);
+	}
+	else if (retval==-1){
+		queryctrl.id=V4L2_CID_BASE;
+	}
+	
+	return retval;		
+}
+
 void set_format(int width,int height,int pixfmt,int pixfield){
 	//Custom camera resolution
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -129,14 +223,16 @@ void set_format(int width,int height,int pixfmt,int pixfield){
 				//get default camera formats to fmt struct
 				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
 					perror("Get Default Pixel Format");
-					exit( errno );
+					if(errno==EBUSY){
+						printf("retry fmt set\n");
+					}else{
+					exit( errno );}
 				}
-    }
-
+    }get_parm();
     //printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
-static int init_camera(int fd){
+static int init_camera(){
 
     CLEAR(cropcap);	//clear data structs
     CLEAR(fmt);
@@ -144,31 +240,38 @@ static int init_camera(int fd){
     CLEAR(caps);
 
     //request capabilities of device
-    if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps) ) {
-        if (EINVAL == errno) {
-            fprintf(stdout,"%s is not a V4L2 device: err%d:%s\n",Camera.name, errno, strerror(errno));
-            return errno;
-        } else {
-            fprintf(stdout,"query device capabilities err %d:%s",errno,strerror(errno) );
-            return errno;
-        }
-    }
+    if (-1 == xioctl(Camera.fd, VIDIOC_QUERYCAP, &caps) ) {
+			switch(errno){
+					case EINVAL:
+						fprintf(stdout,"%s is not a V4L2 device: errno%d:%s\n",Camera.name, errno, strerror(errno));
+				    	exit(errno);
+				    	
+					default:
+						perror("VIDIOC_QUERYCAP");
+				    	exit(errno);
+					
+			}
 
+    }//check if device is a video camera
+    if (!(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+                fprintf(stderr, "%s is not a video capture device\n",Camera.name);
+                exit(errno);
+	}
+	/*
+	*/
     cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
     //request crop capabilities(width,heigth,frame pos etc..)
-    if (0 == xioctl(fd, VIDIOC_CROPCAP, &cropcap)) {
+    if (0 == xioctl(Camera.fd, VIDIOC_CROPCAP, &cropcap)) {
         crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         crop.c = cropcap.defrect; /* reset to default */
 
-        if (-1 == xioctl(fd, VIDIOC_S_CROP, &crop)) {
+        if (-1 == xioctl(Camera.fd, VIDIOC_S_CROP, &crop)) {
             switch (errno) {
-            case ENODATA:
+            case EINVAL:
                 perror("Cropping is not supported");
                 break;
-            case EINVAL:
-                perror("ioctl parameters are (possibly) invalid or cropping is not supported");
-                break;
+                
             default:
                 perror("VIDIOC_S_CROP error: (errors ignored)");
                 break;
@@ -194,8 +297,16 @@ static int init_mmap(int fd)
 
     if (-1 == xioctl(fd, VIDIOC_REQBUFS, &req))
     {
-        perror("Requesting Buffer");
-        return 1;
+    	switch(errno){
+    	
+    		case EINVAL:
+    			fprintf(stderr, "%s does not support memory mapping I/O. Errno:%d->%s\n",Camera.name, errno, strerror(errno));
+    			exit(errno);
+    			
+    		default:
+    			perror("Requesting memory buffer");
+        		exit(errno);
+    	}
     }
     
     struct v4l2_buffer buf;
@@ -205,48 +316,88 @@ static int init_mmap(int fd)
     buf.index = 0;
     if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf))
     {
-        perror("Querying Buffer");
-        return 1;
+        perror("VIDIOC_QUERYBUF");
+        exit(errno);
     }
-    
+    Camera.IO_METHOD=V4L2_MEMORY_MMAP;
+    cam_buf.bytesused=buf.length;
     Camera.buffer = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
 
     return 0;
 }
+/*
+static int init_userptr()
+{
+    CLEAR(req);
+    req.count = 1;
+    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    req.memory = V4L2_MEMORY_USERPTR;
 
+    if (-1 == xioctl(Camera.fd, VIDIOC_REQBUFS, &req))
+    {
+    	switch(errno){
+    	
+    		case EINVAL:
+    			fprintf(stderr, "%s does not support user pointer I/O. Errno:%d->%s\n",Camera.name, errno, strerror(errno));
+    			exit(errno);
+    			
+    		default:
+    			perror("VIDIOC_REQBUFS");
+        		exit(errno);
+    	}
+    }
+
+    Camera.IO_METHOD=V4L2_MEMORY_USERPTR;
+    Camera.buffer = malloc (fmt.fmt.pix.sizeimage);
+
+    return 0;
+}*/
 static int ready_to_capture(int fd)
 {
     //clear the struct which keep image
     CLEAR(cam_buf);
     
     cam_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    cam_buf.memory = V4L2_MEMORY_MMAP;
+    cam_buf.memory = Camera.IO_METHOD;
     cam_buf.index = 0;
-    
+	/*
+    if(Camera.IO_METHOD==V4L2_MEMORY_USERPTR)//additional settings for userptr method
+    {
+    		cam_buf.m.userptr=Camera.buffer;
+    		cam_buf.length=fmt.fmt.pix.sizeimage;
+    }
+    */
     if(-1 == xioctl(fd, VIDIOC_QBUF, &cam_buf))
     {
-        perror("Query Buffer");
-        return 1;
+        perror("VIDIOC_QBUF");
+        exit(errno);
     }
 
     if(-1 == xioctl(fd, VIDIOC_STREAMON, &cam_buf.type))
     {
-        perror("vidioc Start Capture");
-        return 1;
+        perror("VIDIOC_STREAMON");
+        exit(errno);
     }
 	/**/
     fd_set fds;
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
+    
     struct timeval tv = {0};
     tv.tv_sec = 2;
     
     int r = select(fd+1, &fds, NULL, NULL, &tv);
     if(-1 == r)
     {
-        perror("vidioc Wait for Frame");
-        return 1;
+    	if (EINTR == errno)
+    		perror("select");
+        perror("select() fail");
+        exit(errno);
     }
+    if (0 == r) {
+    	perror("select timeout");
+		exit(errno);
+	}
 
 	//took the frame and retrieve
     if(-1 == xioctl(fd, VIDIOC_DQBUF, &cam_buf))
@@ -327,13 +478,40 @@ int camera__activate(){
         return Camera.fd;
     }
 
-    init_camera(Camera.fd); //prepare camera by getting info
+    init_camera(); //prepare camera by getting info
     print_specs();
     init_mmap(Camera.fd);	//open memory map and concatenate to buffer
-
+    ready_to_capture(Camera.fd);
+	//init_userptr();
     return 0;
 }
 
+/*
+int camera__deactivate(){
+
+        switch (Camera.IO_METHOD) {
+		    case V4L2_MEMORY_MMAP:
+		    	if (-1 == xioctl(Camera.fd, VIDIOC_STREAMOFF, &cam_buf.type)){
+		    			perror("stop streaming(VIDIOC_STREAMOFF)");
+                        exit(errno);
+                }
+		    	if (-1 == munmap(Camera.buffer, cam_buf.bytesused)){
+						perror("Camera deactivate munmap");
+						exit(errno);
+		    	}
+		        break;
+		}
+		return 0;
+}
+static void close_device(void)
+{
+        if (-1 == close(Camera.fd)){
+        		perror("Camera could not closed");
+                exit(errno);
+		}
+        Camera.fd = -1;
+}
+*/
 uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;

@@ -18,11 +18,18 @@ extern struct v4l2_capability caps;		//keep device capabilities
 extern struct v4l2_cropcap cropcap;		//default cropping capabilities
 extern struct v4l2_crop crop;			//set crop settings
 extern struct v4l2_requestbuffers req;
+extern struct v4l2_queryctrl queryctrl;
+extern struct v4l2_querymenu querymenu;
 /*
- *  
 */
 int 	 camera__activate();						//activate camera
+//int		 camera__deactivate();
+
+int camera__control__get_ctrl();
+void camera__control__set(int ctrl_id, int val);
+
 uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height);//convert camera buffer to RGB and apply filters
 uint8_t* camera__get_RGB_buff();			//convert camera buffer to RGB and return that RGB buffer
 char*	 camera__dump_buffer_to_file(const char* filename);//dumps raw buffer data to file
+
 #endif
