@@ -26,6 +26,7 @@ int 	 camera__activate();						//activate camera
 //int		 camera__deactivate();
 
 int camera__control__get_ctrl();
+void camera__control__enumerate_menu();
 void camera__control__set(int ctrl_id, int val);
 
 uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height);//convert camera buffer to RGB and apply filters

@@ -145,6 +145,9 @@ void camera__control__set(int ctrl_id, int val){
 	}else if ((queryctrl.flags & V4L2_CTRL_FLAG_READ_ONLY) ) {
     		printf("Control \'%08x\' is read only.\n", ctrl_id);
 	
+	}else if ((queryctrl.flags & V4L2_CTRL_FLAG_GRABBED) ) {
+    		printf("Control \'%08x\'temporarily unchangeable.\n", ctrl_id);
+	
 	} else {
 
 			control.id = ctrl_id;
@@ -158,19 +161,17 @@ void camera__control__set(int ctrl_id, int val){
 	}
 }
 
-static void enumerate_menu(void)
-{
-    printf("  Menu items:\n");
-
-    CLEAR(querymenu);
+void camera__control__enumerate_menu(){
+	// Writes informations to 'struct v4l2_querymenu'.
     querymenu.id = queryctrl.id;
 
-    for (querymenu.index = queryctrl.minimum;
-         querymenu.index <= queryctrl.maximum;
-         querymenu.index++) {
-        if (0 == ioctl(Camera.fd, VIDIOC_QUERYMENU, &querymenu)) {
-            printf("  %s\n", querymenu.name);
+    if (querymenu.index <= queryctrl.maximum) {
+
+        if ( 0 == xioctl(Camera.fd, VIDIOC_QUERYMENU, &querymenu) ) {
+            //printf("%8i : %25s\n",querymenu.index, querymenu.name);
         }
+    }else{
+    	perror("VIDIOC_QUERYMENU:menu index is more than maximum");
     }
 }
 
@@ -183,7 +184,7 @@ int camera__control__get_ctrl(){
 	retval=xioctl(Camera.fd, VIDIOC_QUERYCTRL, &queryctrl);
 	if (0 == retval ) {
         	//values can be accessed by queryctrl struct
-        	//printf("Control %s  min:%i max:%i default:%i\n", queryctrl.name, queryctrl.minimum, queryctrl.maximum, queryctrl.default_value);
+        	//printf("Control %s  min:%i max:%i default:%i\n",queryctrl.type, queryctrl.name, queryctrl.minimum, queryctrl.maximum, queryctrl.default_value);
         	//camera__control__set(queryctrl.id ,queryctrl.default_value);//reset to default parameters on init
         	queryctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
 
@@ -195,7 +196,7 @@ int camera__control__get_ctrl(){
 	else if (retval==-1){
 		queryctrl.id=V4L2_CID_BASE;
 	}
-	
+
 	return retval;		
 }
 
