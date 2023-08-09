@@ -46,7 +46,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 	PangoAttrList* Attrs=pango_attr_list_copy(baseAttrs);
 	pango_attr_list_insert(Attrs, pango_attr_foreground_new(0,32501,42501));
 	
-	if( (cap & 0x1)==0x1){
+	if( cap & V4L2_CAP_VIDEO_CAPTURE ){
 		temp=gtk_label_new("Video Capture(single-planar API)");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -54,7 +54,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( (cap & 0x2)==0x2){
+	if( cap & V4L2_CAP_VIDEO_OUTPUT ){
 		temp=gtk_label_new("Video Output(single-planar API)");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -62,7 +62,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( (cap & 0x4)==0x4){
+	if( cap & V4L2_CAP_VIDEO_OVERLAY ){
 		temp=gtk_label_new("Video Overlay");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -70,7 +70,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( (cap & 0x10)==0x10){
+	if( cap & V4L2_CAP_VBI_CAPTURE ){
 		temp=gtk_label_new("Raw VBI");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -78,15 +78,8 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( (cap & 0x20)==0x20){
-		temp=gtk_label_new("Raw VBI Output");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( (cap & 0x40)==0x40){
+
+	if( cap & V4L2_CAP_SLICED_VBI_CAPTURE ){
 		temp=gtk_label_new("Sliced VBI Capture");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -94,16 +87,8 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( (cap & 0x80)==0x80){
-		temp=gtk_label_new("Sliced VBI Output");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
 	//------------------------
-	if( ((cap>>16) & 0x01)==0x01){
+	if( cap & V4L2_CAP_TUNER ){
 		temp=gtk_label_new("Has tuner(s) to demodulate a RF signal");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -111,7 +96,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>16) & 0x02)==0x02){
+	if( cap & V4L2_CAP_AUDIO ){
 		temp=gtk_label_new("Audio I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -119,7 +104,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>16) & 0x04)==0x04){
+	if( cap & V4L2_CAP_RADIO ){
 		temp=gtk_label_new("This is a radio recevier");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -127,7 +112,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>16) & 0x08)==0x08){
+	if( cap & V4L2_CAP_MODULATOR ){
 		temp=gtk_label_new("Has modulator(s) to emit RF signals");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -135,7 +120,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>16) & 0x10)==0x10){
+	if( cap & V4L2_CAP_SDR_CAPTURE ){
 		temp=gtk_label_new("Software Defined Radio(SDR)");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -143,7 +128,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>16) & 0x20)==0x20){
+	if( cap & V4L2_CAP_EXT_PIX_FORMAT ){
 		temp=gtk_label_new("Extended Pixel Format");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -160,7 +145,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_widget_set_visible(temp, 1);
 	}
 	//---------------------------------
-	if( ((cap>>24) & 0x1)==0x01){
+	if( cap & V4L2_CAP_READWRITE ){
 		temp=gtk_label_new(" Read/Write I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -168,7 +153,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>24) & 0x2)==0x02){
+	if( cap & V4L2_CAP_ASYNCIO ){
 		temp=gtk_label_new("Asynchronous I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -176,7 +161,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>24) & 0x4)==0x04){
+	if( cap & V4L2_CAP_STREAMING){
 		temp=gtk_label_new("Streaming I/O");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -184,7 +169,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>24) & 0x10)==0x10){
+	if( cap & V4L2_CAP_TOUCH ){
 		temp=gtk_label_new("Device is a Touch Device");
 		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
 		gtk_widget_set_halign (temp, GTK_ALIGN_END);
@@ -192,7 +177,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
 		gtk_widget_set_visible(temp, 1);
 	}
-	if( ((cap>>24) & 0x80)==0x80){
+	if( cap & V4L2_CAP_DEVICE_CAPS ){
 		
 		PangoAttrList* Attrs2=pango_attr_list_copy(Attrs);
 		pango_attr_list_insert(Attrs2, pango_attr_foreground_new(0,55535,50706));
