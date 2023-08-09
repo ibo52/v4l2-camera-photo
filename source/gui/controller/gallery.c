@@ -96,7 +96,7 @@ int gallery__open_display_window( const char* file_path){
 			NULL);
 		gtk_image_set_from_pixbuf(GTK_IMAGE(gallery__display_image), imgBuff);
 		
-		g_signal_connect(gallery__display_window,"destroy",G_CALLBACK(gtk_main_quit),NULL);
+		g_signal_connect(gallery__display_window,"destroy",G_CALLBACK(gtk_window_close),NULL);
 		g_signal_connect(gallery__binaryButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		g_signal_connect(gallery__inverseButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		g_signal_connect(gallery__grayscaleButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);

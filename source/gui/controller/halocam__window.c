@@ -385,7 +385,7 @@ void ShowAboutWindowButton_activate_cb(GtkMenuItem *item){
 void ShowPreferencesWindowButton_activate_cb(GtkMenuItem *item){
 	cameraSettingsDialog__open_display_window();
 }
-
+gpointer app_close(gpointer GtkApp);
 void app_activate (GApplication *app, gpointer user_data) {
 	
 	//gtk_init(&argc, &argv);//init gtk
@@ -401,9 +401,7 @@ void app_activate (GApplication *app, gpointer user_data) {
 	halocam__info_labels__activate(builder);//set labels for info page
 	
 	galleryFlowBox=GTK_WIDGET(gtk_builder_get_object(builder,"galleryFlowBox"));
-	
-	g_signal_connect(window,"destroy",G_CALLBACK(gtk_main_quit),NULL);
-
+	//g_signal_connect(window,"destroy",G_CALLBACK(g_application_quit),NULL);
 	g_signal_connect(imageBox,"draw",G_CALLBACK(updateImage),NULL);
 	gtk_builder_connect_signals(builder,NULL);
 	//---

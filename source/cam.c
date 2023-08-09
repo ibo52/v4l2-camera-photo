@@ -446,27 +446,6 @@ void print_specs(){
             buffer_format,fmt_desc.description);
 }
 
-int get_arg_opts(int argc,char **argv){
-	int i;
-	if(argc==1){
-           return 1;//let interpret as exit silently
-        }
-	for(i=1;i<argc;i++){
-	
-		if(argv[i][0]=='-'){
-			
-			switch(argv[i][1]){
-				case 'i': print_specs();break;
-				case 'h': printf("%s [options]\n"
-                "-h :print this and exit\n"
-                "-i :device information\n"
-                ,argv[0]);exit(0);
-			}
-		}
-	}
-        return 0;
-}
-
 int camera__activate(){
 	//try to open camera as read-write mode
     Camera.name="/dev/video0";

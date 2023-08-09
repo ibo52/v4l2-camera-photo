@@ -50,7 +50,6 @@ static void cameraSettingsDialog__append_controls(){
 				gtk_box_pack_start(GTK_BOX(rootBox), box, 1,1,5);
 				gtk_widget_show(label);	
 				gtk_widget_show(box);
-				pango_attr_list_unref(Attrs);
 				continue;
 			}
 			//slider properties
@@ -95,10 +94,9 @@ static void cameraSettingsDialog__append_controls(){
 				
 			else if( GTK_IS_SCALE(slider))
 				g_signal_connect(slider, "value-changed", G_CALLBACK(value_changed_cb),(void*)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));//XOR to get control id
-			
-			pango_attr_list_unref(Attrs);
 
 	}
+	pango_attr_list_unref(Attrs);
 }
 
 int cameraSettingsDialog__open_display_window(){
@@ -113,9 +111,9 @@ int cameraSettingsDialog__open_display_window(){
 		cameraSettingsDialog__display_window=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"cameraSettingsDialog"));	
 		rootBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"rootBox"));	
 		
-		g_signal_connect(cameraSettingsDialog__display_window,"destroy",G_CALLBACK(gtk_main_quit),NULL);
-		
 		cameraSettingsDialog__append_controls();
+		
+		g_signal_connect(cameraSettingsDialog__display_window,"destroy",G_CALLBACK(gtk_window_close),NULL);
 		
 		gtk_widget_show_all (cameraSettingsDialog__display_window);
 		
