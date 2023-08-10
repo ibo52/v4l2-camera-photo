@@ -301,7 +301,7 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 	g_mutex_lock (&camera_access_mutex);
 	
 	if (imageBox!=NULL || imageBoxLayout!=NULL){
-		uint8_t* buffer=camera__get_RGB_buff();
+		uint8_t* buffer=(uint8_t* )camera__capture(V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
 		
 		//1. move data to gdkpixbuff struct
 		GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
@@ -345,7 +345,7 @@ gboolean captureImage(gpointer data){
 	g_mutex_lock (&camera_access_mutex);
 	
 	char *text=data;
-	text=camera__dump_buffer_to_file(text);//get saved image name
+	text=camera__imsave(text);//get saved image name
 	
 	gallery__load_image(galleryFlowBox, text, 176, 176, 1);//adds image to galleryFlowBox
 	

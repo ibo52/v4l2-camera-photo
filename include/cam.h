@@ -25,12 +25,12 @@ extern struct v4l2_querymenu querymenu;
 int 	 camera__activate();						//activate camera
 //int		 camera__deactivate();
 
-int camera__control__get_ctrl();
-void camera__control__enumerate_menu();
-void camera__control__set(int ctrl_id, int val);
+int camera__control__get_ctrl();					//get supported camera controls to 'struct queryctrl' one by one
+void camera__control__enumerate_menu();				//(if exist)get menu of control 'struct queryctrl' to 'struct querymenu' one by one
+void camera__control__set(int ctrl_id, int val);	//set control 'ctrl_id' to desired 'int val'
 
-uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height);//convert camera buffer to RGB and apply filters
-uint8_t* camera__get_RGB_buff();			//convert camera buffer to RGB and return that RGB buffer
-char*	 camera__dump_buffer_to_file(const char* filename);//dumps raw buffer data to file
+//uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height);//convert camera buffer to RGB and apply filters
+intptr_t* camera__capture(int buffer_type);			//convert camera buffer to 'buffer_type' and return
+char*	 camera__imsave(const char* filename);//dumps raw buffer data to file
 
 #endif

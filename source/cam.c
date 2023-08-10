@@ -39,12 +39,18 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
+typedef struct buff_{
+	intptr_t* address;
+	size_t length;
+}buff_;
+
 typedef struct camera{
 	char *name;				//camera path, default:/dev/video0 on main
 	int fd;					//file descriptor of camera file
-	uint8_t *buffer;		//cam output buffer that concatenated to mmap
+	buff_ *buffer;			//cam output buffer that concatenated to mmap
 	int IO_METHOD;			//mmap, userptr or R/W
 }camera; 
+
 
 camera Camera;
 
@@ -156,7 +162,8 @@ void camera__control__set(int ctrl_id, int val){
 			
 			if (-1 == xioctl(Camera.fd, VIDIOC_S_CTRL, &control)) {
 				fprintf(stdout, "VIDIOC_S_CTRL error for Ctrl id:%08x: %s\n", ctrl_id, strerror(errno));
-				exit(EXIT_FAILURE);
+				if(errno!=EBUSY)
+					exit(EXIT_FAILURE);
 			}
 	}
 }
@@ -229,7 +236,15 @@ void set_format(int width,int height,int pixfmt,int pixfield){
 					}else{
 					exit( errno );}
 				}
-    }get_parm();
+    }
+    /* Buggy driver paranoia. */
+        unsigned int min = fmt.fmt.pix.width * 2;
+        if (fmt.fmt.pix.bytesperline < min)
+                fmt.fmt.pix.bytesperline = min;
+        min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
+        if (fmt.fmt.pix.sizeimage < min)
+                fmt.fmt.pix.sizeimage = min;
+    get_parm(); //get fps info
     //printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
@@ -291,8 +306,10 @@ static int init_camera(){
 
 static int init_mmap(int fd)
 {
+	Camera.IO_METHOD=V4L2_MEMORY_MMAP;
+	
     CLEAR(req);
-    req.count = 1;
+    req.count = 4;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
 
@@ -310,20 +327,38 @@ static int init_mmap(int fd)
     	}
     }
     
-    struct v4l2_buffer buf;
-    CLEAR(buf);
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buf.memory = V4L2_MEMORY_MMAP;
-    buf.index = 0;
-    if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf))
-    {
-        perror("VIDIOC_QUERYBUF");
-        exit(errno);
+    if(req.count < 4){
+    	fprintf(stdout, ANSI_COLOR_YELLOW"Insufficient buffer count(%i) on %s for queueing.\n", req.count, Camera.name);	
+    	if(req.count>0)
+    		fprintf(stdout, "Program will try to run %s with this number of buffer\n"ANSI_COLOR_RESET, Camera.name);
+    	else
+    		exit(-1);
     }
-    Camera.IO_METHOD=V4L2_MEMORY_MMAP;
-    cam_buf.bytesused=buf.length;
-    Camera.buffer = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
-
+    
+    Camera.buffer=calloc(req.count, sizeof(buff_));
+    
+    for (int i=0; i<req.count; i++){
+		struct v4l2_buffer buf;
+		
+		CLEAR(buf);
+		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.index = i;
+		
+		if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf)){
+		    perror("VIDIOC_QUERYBUF");
+		    exit(errno);
+		}
+		
+		cam_buf.bytesused=buf.length;
+		Camera.buffer[i].length=buf.length;
+		Camera.buffer[i].address = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
+		
+		if (MAP_FAILED == Camera.buffer ){
+			perror("mmap");
+			exit(errno);
+		}
+	}
     return 0;
 }
 /*
@@ -353,61 +388,69 @@ static int init_userptr()
 
     return 0;
 }*/
-static int ready_to_capture(int fd)
-{
-    //clear the struct which keep image
-    CLEAR(cam_buf);
-    
-    cam_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    cam_buf.memory = Camera.IO_METHOD;
-    cam_buf.index = 0;
-	/*
-    if(Camera.IO_METHOD==V4L2_MEMORY_USERPTR)//additional settings for userptr method
-    {
-    		cam_buf.m.userptr=Camera.buffer;
-    		cam_buf.length=fmt.fmt.pix.sizeimage;
-    }
-    */
-    if(-1 == xioctl(fd, VIDIOC_QBUF, &cam_buf))
-    {
-        perror("VIDIOC_QBUF");
-        exit(errno);
-    }
-
-    if(-1 == xioctl(fd, VIDIOC_STREAMON, &cam_buf.type))
-    {
+static int ready_to_capture(){
+/*
+*	Adjust the camera buffers and sets camera for streaming
+*/
+    for(int i=0; i<req.count; i++){
+			//clear the struct which keep image
+			CLEAR(cam_buf);
+			
+			cam_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			cam_buf.memory =Camera.IO_METHOD;
+    		cam_buf.index = i;
+			/*
+			if(Camera.IO_METHOD==V4L2_MEMORY_USERPTR)//additional settings for userptr method
+			{
+					cam_buf.m.userptr=Camera.buffer;
+					cam_buf.length=fmt.fmt.pix.sizeimage;
+			}
+			*/
+			if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
+			{//queue buffers to fill camera data
+				perror("VIDIOC_QBUF");
+				exit(errno);
+			}
+	}
+	
+    if(-1 == xioctl(Camera.fd, VIDIOC_STREAMON, &cam_buf.type))
+    {//switch streaming on
         perror("VIDIOC_STREAMON");
         exit(errno);
     }
+	
+    return 0;
+}
+int dequeue_buff(){
 	/**/
     fd_set fds;
     FD_ZERO(&fds);
-    FD_SET(fd, &fds);
-    
+    FD_SET(Camera.fd, &fds);
+
     struct timeval tv = {0};
     tv.tv_sec = 2;
-    
-    int r = select(fd+1, &fds, NULL, NULL, &tv);
+
+    int r = select(Camera.fd+1, &fds, NULL, NULL, &tv);
     if(-1 == r)
     {
-    	if (EINTR == errno)
-    		perror("select");
-        perror("select() fail");
-        exit(errno);
+    	if (EINTR != errno){
+        	perror("select() fail");
+        	exit(errno);
+        }
     }
     if (0 == r) {
-    	perror("select timeout");
+    	fprintf(stdout, "select timeout\n");
 		exit(errno);
 	}
 
 	//took the frame and retrieve
-    if(-1 == xioctl(fd, VIDIOC_DQBUF, &cam_buf))
+    if(-1 == xioctl(Camera.fd, VIDIOC_DQBUF, &cam_buf))
     {
-        perror("vidioc Retrieve Frame");
+        perror("VIDIOC_DQBUF");
         return 1;
     }
 
-    return 0;
+	return 0;
 }
 void print_specs(){
 
@@ -448,7 +491,7 @@ void print_specs(){
 
 int camera__activate(){
 	//try to open camera as read-write mode
-    Camera.name="/dev/video0";
+    Camera.name="/dev/video2";
     
     if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
@@ -458,10 +501,10 @@ int camera__activate(){
         return Camera.fd;
     }
 
-    init_camera(); //prepare camera by getting info
+    init_camera(); 			//prepare camera by getting info
     print_specs();
     init_mmap(Camera.fd);	//open memory map and concatenate to buffer
-    ready_to_capture(Camera.fd);
+	ready_to_capture();		//adjust camera buffers and open streaming
 	//init_userptr();
     return 0;
 }
@@ -495,7 +538,7 @@ static void close_device(void)
 uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;
-
+	
 	// Variables for the decompressor itself
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -542,21 +585,57 @@ uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int hei
 	return processed_buffer;
 	
 }
-uint8_t* camera__get_RGB_buff(){
-	ready_to_capture(Camera.fd);
-    uint8_t *rgbBuff=camera__decode_rgb(Camera.buffer, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
-    
+intptr_t* camera__capture(int buffer_type){
+	
+	intptr_t* rgbBuff;
+	dequeue_buff();//io to dequeue buffer. Queueing made here(end of this function) after image processed
+
+	switch (buffer_type){
+	
+		case V4L2_PIX_FMT_RGB24:
+			rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+			break;
+			
+		default:
+			rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+			break;
+	}
+	
+	//resend buffer to queue, so camera can fill it up again
+    if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
+	{
+				perror("VIDIOC_QBUF");
+				exit(errno);
+	}
+	
     return rgbBuff;
 }
 
-char *camera__dump_buffer_to_file(const char* name){
+char *camera__imsave(const char* name){
 
 	char *filename=(char*)calloc(128,sizeof(char));
 	
 	strcat(filename,"../images/");
 	write_time(filename, 0 );
 	strcat(filename,name);
-	strcat(filename,".jpg");
+	
+	switch(fmt.fmt.pix.pixelformat){
+	
+		case V4L2_PIX_FMT_MJPEG:
+		case V4L2_PIX_FMT_JPEG:
+			strcat(filename,".jpg");
+			break;
+		
+		case V4L2_PIX_FMT_RGB24:
+			strcat(filename,".rgb");
+			break;
+		
+		default:
+			strcat(filename,".jpg");
+			break;
+	}
+	
+	
 	
 	int jpg_fd;
 	if(  ( jpg_fd= open(filename, O_WRONLY |O_TRUNC| O_CREAT, 0664) ) ==-1  ){
@@ -568,7 +647,7 @@ char *camera__dump_buffer_to_file(const char* name){
 	int recv=0;
 	//printf("expecting %i bytes to write\n",cam_buf.bytesused);
 	do{
-		recv+=write(jpg_fd, Camera.buffer, cam_buf.bytesused);
+		recv+=write(jpg_fd, Camera.buffer[cam_buf.index].address, Camera.buffer[cam_buf.index].length);
 		//printf("recv:%i\n",recv);
 	}while( recv<cam_buf.bytesused) ;
 

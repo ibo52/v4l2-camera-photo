@@ -24,7 +24,7 @@ static void cameraSettingsDialog__append_controls(){
 	pango_attr_list_insert(Attrs, pango_attr_foreground_new(0,16384,32768));
 	
 	CLEAR(queryctrl);
-	queryctrl.id = V4L2_CID_BASE;//V4L2_CID_USER_CLASS;//V4L2_CID_BASE;
+	queryctrl.id = V4L2_CID_USER_CLASS;//V4L2_CID_BASE;
 	
 	while (0 == camera__control__get_ctrl() ) {
 
@@ -43,7 +43,17 @@ static void cameraSettingsDialog__append_controls(){
 			
 			//if reached V4L2_CID_CAMERA_CLASS or V4L2_CID_USER_CLASS do not add slider.
 			//These are not controls, but explanation strings for next control segments
-			if( ((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CID_CAMERA_CLASS) | ((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CID_USER_CLASS) ){
+			
+			if( ((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CID_CAMERA_CLASS) | //https://docs.nvidia.com/jetson/l4t-multimedia/v4l2-controls_8h.html
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CID_USER_CLASS)  ||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_MPEG+1) ||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_FLASH+1)||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_JPEG+1) ||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_IMAGE_SOURCE+1) ||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_IMAGE_PROC+1)   ||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_DV+1) 			||
+			((queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL)==V4L2_CTRL_CLASS_DETECT+1) 	    ){
+										
 				gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
 				
 				gtk_box_pack_start(GTK_BOX(box), label, 1,1,5);
@@ -71,6 +81,11 @@ static void cameraSettingsDialog__append_controls(){
 				}
 				gtk_combo_box_set_active(GTK_COMBO_BOX(slider), queryctrl.default_value);
 				queryctrl.id=(queryctrl.id|V4L2_CTRL_FLAG_NEXT_CTRL);//de-reverse effect of flag V4L2_CTRL_FLAG_NEXT_CTRL;	
+			}
+			else if( queryctrl.type == V4L2_CTRL_TYPE_BOOLEAN ){
+				slider=gtk_switch_new();
+				gtk_widget_set_halign(slider, GTK_ALIGN_START);
+				gtk_widget_set_margin_end(slider, 50);
 			}
 			else{
 			slider=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,
