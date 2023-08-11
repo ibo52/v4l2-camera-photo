@@ -6,13 +6,55 @@
 GtkBuilder		*cameraSettingsDialog__builder;
 GtkWidget		*cameraSettingsDialog__display_window;
 GtkWidget		*rootBox;
+GtkWidget		*format_ResolutionComboBox;
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
-void value_changed_cb(GtkRange* self, gpointer ctrl_id){
+void cameraCtrl_slider_value_changed_cb(GtkRange* self, gpointer ctrl_id){
 	
 	//forward control id and value to camera
 	camera__control__set((uintptr_t)ctrl_id ,(int)gtk_range_get_value(self) );
+}
+
+void cameraCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
+	
+	//forward control id and value to camera
+	//camera__control__set((uintptr_t)ctrl_id ,(int)gtk_range_get_value(self) );
+	g_print("Camera combobox value:%s\n", gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) ));
+	g_print("\tcombobox id:%s\n", gtk_combo_box_get_active_id(self) );
+}
+
+void cameraCtrl_switch_value_changed_cb(GtkSwitch* self, gpointer ctrl_id){
+	
+	//forward control id and value to camera
+	//camera__control__set((uintptr_t)ctrl_id ,(int)gtk_range_get_value(self) );
+	g_print("Camera switch value:%i\n", gtk_switch_get_active( self) );
+}
+
+void formatCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
+	
+	//forward control id and value to camera
+	
+	g_print("format combobox value:%s\n", gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) ));
+	g_print("\tcombobox id:%s\n", gtk_combo_box_get_active_id(self) );
+}
+
+static void cameraSettingsDialog__append_formatControls(){
+	
+	int index=0;
+	CLEAR(frame_size);
+	char tempString[32];
+	char tempId[4];
+	
+	while(-1 != get_frameSize(index) ){
+		
+		sprintf(tempString, "%ix%i", frame_size.discrete.width, frame_size.discrete.height);
+		sprintf(tempId, "%i", index);
+		gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(format_ResolutionComboBox), tempId, tempString);
+		index++;
+	}
+	gtk_combo_box_set_active(GTK_COMBO_BOX(format_ResolutionComboBox), 0);
+	g_signal_connect(format_ResolutionComboBox, "changed", G_CALLBACK(formatCtrl_comboBox_value_changed_cb), NULL);
 }
 
 static void cameraSettingsDialog__append_controls(){
@@ -80,12 +122,16 @@ static void cameraSettingsDialog__append_controls(){
          			
 				}
 				gtk_combo_box_set_active(GTK_COMBO_BOX(slider), queryctrl.default_value);
+				g_signal_connect(slider, "changed", G_CALLBACK(cameraCtrl_comboBox_value_changed_cb), NULL);
+				
 				queryctrl.id=(queryctrl.id|V4L2_CTRL_FLAG_NEXT_CTRL);//de-reverse effect of flag V4L2_CTRL_FLAG_NEXT_CTRL;	
 			}
 			else if( queryctrl.type == V4L2_CTRL_TYPE_BOOLEAN ){
 				slider=gtk_switch_new();
 				gtk_widget_set_halign(slider, GTK_ALIGN_START);
 				gtk_widget_set_margin_end(slider, 50);
+				
+				g_signal_connect(slider, "state-set", G_CALLBACK(cameraCtrl_switch_value_changed_cb), NULL);
 			}
 			else{
 			slider=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,
@@ -108,7 +154,7 @@ static void cameraSettingsDialog__append_controls(){
 				gtk_widget_set_sensitive(slider, 0);//disable if flag set
 				
 			else if( GTK_IS_SCALE(slider))
-				g_signal_connect(slider, "value-changed", G_CALLBACK(value_changed_cb),(void*)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));//XOR to get control id
+				g_signal_connect(slider, "value-changed", G_CALLBACK(cameraCtrl_slider_value_changed_cb),(void*)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));//XOR to get control id
 
 	}
 	pango_attr_list_unref(Attrs);
@@ -125,8 +171,10 @@ int cameraSettingsDialog__open_display_window(){
 	
 		cameraSettingsDialog__display_window=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"cameraSettingsDialog"));	
 		rootBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"rootBox"));	
+		format_ResolutionComboBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"format_ResolutionComboBox"));
 		
 		cameraSettingsDialog__append_controls();
+		cameraSettingsDialog__append_formatControls();
 		
 		g_signal_connect(cameraSettingsDialog__display_window,"destroy",G_CALLBACK(gtk_window_close),NULL);
 		

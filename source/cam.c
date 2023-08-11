@@ -79,39 +79,41 @@ int xioctl(int fh, int request, void *arg){
     return r;
 }
 
-static int get_frameSize(int pixelformat,int all_sizes){
+int get_frameSize(int index){
 	CLEAR(frame_size);
 	frame_size.type=V4L2_FRMSIZE_TYPE_DISCRETE;
-	frame_size.pixel_format=pixelformat;		//calculate frame sizes for given pixel format
+	frame_size.index= index;
+	frame_size.pixel_format=fmt_desc.pixelformat;		//calculate frame sizes for given pixel format
 	
-	while (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FRAMESIZES, &frame_size)){
+	if (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FRAMESIZES, &frame_size)){
 
 			//printf("\t\tFrame Size:%u %u\n", frame_size.discrete.width, frame_size.discrete.height);
-			if(all_sizes)
-				frame_size.index++;
-			else
-				break;
+			//frame_size.index++;
+			return 0;
+	}else{
+		if (errno!=EINVAL)
+			perror("VIDIOC_ENUM_FRAMESIZES");
+		return -1;
 	}
 	
 	return 0;	
 }
 
-static int get_format(int all_formats){	//if 1: get all formats; else get first format
+int get_format(int fmt_description_index){	//if 1: get all formats; else get first format
 	CLEAR(fmt_desc);
 	fmt_desc.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt_desc.index=fmt_description_index;
 	
-	while (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FMT, &fmt_desc)){
+	if (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FMT, &fmt_desc) ){
 
 			//printf("Format:%c%c%c%c(%s)\n", fmt_desc.pixelformat&0xff, (fmt_desc.pixelformat>>8)&0xff, (fmt_desc.pixelformat>>16)&0xff, (fmt_desc.pixelformat>>24)&0xff, fmt_desc.description);
-			get_frameSize(fmt_desc.pixelformat,0);
-			
-			if(all_formats)
-				fmt_desc.index++;
-			else
-				break;
-	}
-	
-	return 0;		
+			get_frameSize(fmt_desc.pixelformat);
+
+			return 0;
+	}else{
+		perror("VIDIOC_ENUM_FMT");
+		return -1;
+	}	
 }
 
 static int get_parm(){	//if 1: get all formats; else get first format
@@ -491,7 +493,7 @@ void print_specs(){
 
 int camera__activate(){
 	//try to open camera as read-write mode
-    Camera.name="/dev/video2";
+    Camera.name="/dev/video0";
     
     if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
@@ -509,32 +511,50 @@ int camera__activate(){
     return 0;
 }
 
-/*
-int camera__deactivate(){
+static void stop_streaming(){
 
-        switch (Camera.IO_METHOD) {
+	switch (Camera.IO_METHOD) {
+
+        	case V4L2_MEMORY_USERPTR:
 		    case V4L2_MEMORY_MMAP:
 		    	if (-1 == xioctl(Camera.fd, VIDIOC_STREAMOFF, &cam_buf.type)){
-		    			perror("stop streaming(VIDIOC_STREAMOFF)");
-                        exit(errno);
-                }
-		    	if (-1 == munmap(Camera.buffer, cam_buf.bytesused)){
-						perror("Camera deactivate munmap");
-						exit(errno);
-		    	}
+							perror("stop streaming(VIDIOC_STREAMOFF)");
+		                    exit(errno);
+				}
 		        break;
 		}
-		return 0;
 }
-static void close_device(void)
-{
+static void close_device(void){
         if (-1 == close(Camera.fd)){
         		perror("Camera could not closed");
                 exit(errno);
 		}
         Camera.fd = -1;
 }
-*/
+int camera__deactivate(){
+		stop_streaming();
+		
+        switch (Camera.IO_METHOD) {
+        	
+		    case V4L2_MEMORY_MMAP:
+		    	for (int i = 0; i < req.count; i++){
+					if (-1 == munmap( Camera.buffer[i].address, Camera.buffer[i].length) ){
+							perror("Camera deactivate(munmap)");
+							exit(errno);
+					}
+		    	}
+		        break;
+		    
+		    case V4L2_MEMORY_USERPTR:
+        		for (int i = 0; i < req.count; i++){
+					free( Camera.buffer[i].address );
+		    	}
+        		break;
+		}
+		close_device();
+		return 0;
+}
+
 uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;
