@@ -22,7 +22,7 @@ extern struct v4l2_queryctrl queryctrl; //to get supported controls
 extern struct v4l2_querymenu querymenu; //to get menus those type of controls
 /*
 */
-int 	 camera__activate();						//opens camera
+int 	 camera__activate(const char* device_path);	//opens camera
 int		 camera__deactivate();						//closes camera
 
 int camera__control__get_ctrl();					//get supported camera controls to 'struct queryctrl' one by one
@@ -34,5 +34,6 @@ intptr_t* camera__capture(int buffer_type);			//convert camera buffer to 'buffer
 char*	 camera__imsave(const char* filename);//dumps raw buffer data to file
 
 int get_format(int fmt_description_index);			//get supported camera formats to 'struct fmt_desc' one by one
+void set_format(int width,int height,int pixfmt,int pixfield);
 int get_frameSize(int pixelformat);					//get framesizes of that supported formats to 'struct frame_size' obne by one
 #endif

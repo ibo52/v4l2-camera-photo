@@ -7,6 +7,7 @@ GtkBuilder		*cameraSettingsDialog__builder;
 GtkWidget		*cameraSettingsDialog__display_window;
 GtkWidget		*rootBox;
 GtkWidget		*format_ResolutionComboBox;
+GtkWidget		*format_deviceListComboBox;
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
@@ -19,24 +20,42 @@ void cameraCtrl_slider_value_changed_cb(GtkRange* self, gpointer ctrl_id){
 void cameraCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
 	
 	//forward control id and value to camera
-	//camera__control__set((uintptr_t)ctrl_id ,(int)gtk_range_get_value(self) );
-	g_print("Camera combobox value:%s\n", gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) ));
-	g_print("\tcombobox id:%s\n", gtk_combo_box_get_active_id(self) );
+	int ctrl_value = atoi( gtk_combo_box_get_active_id(self) );
+	camera__control__set((uintptr_t)ctrl_id , ctrl_value );
 }
 
-void cameraCtrl_switch_value_changed_cb(GtkSwitch* self, gpointer ctrl_id){
+void cameraCtrl_switch_value_changed_cb(GtkSwitch* self,gboolean state, gpointer ctrl_id){
 	
 	//forward control id and value to camera
-	//camera__control__set((uintptr_t)ctrl_id ,(int)gtk_range_get_value(self) );
-	g_print("Camera switch value:%i\n", gtk_switch_get_active( self) );
+	camera__control__set((uintptr_t)ctrl_id ,(int)state );
 }
 
 void formatCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
 	
-	//forward control id and value to camera
+	/*
+	int width, height;
+	char *string= gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) );
 	
-	g_print("format combobox value:%s\n", gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) ));
-	g_print("\tcombobox id:%s\n", gtk_combo_box_get_active_id(self) );
+	char* height_str=strchr(string, 'x');
+	
+	char width_str[10]={'0'};
+	strncpy(width_str, string, (height_str-string));
+	width=atoi(width_str);
+	
+	*height_str++;
+	height=atoi(height_str);
+	
+	g_print("string:%s  h:%i w:%i\n", string, height ,width);
+	*/
+	//set_format(width, height, 0, 0);
+	
+}
+
+void format_deviceListcomboBox_value_changed_cb(GtkComboBox* self, gpointer user_data){
+	
+	//close the one, and open selected camera device
+	camera__deactivate();
+	camera__activate(  gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) )  );
 }
 
 static void cameraSettingsDialog__append_formatControls(){
@@ -55,6 +74,24 @@ static void cameraSettingsDialog__append_formatControls(){
 	}
 	gtk_combo_box_set_active(GTK_COMBO_BOX(format_ResolutionComboBox), 0);
 	g_signal_connect(format_ResolutionComboBox, "changed", G_CALLBACK(formatCtrl_comboBox_value_changed_cb), NULL);
+	
+	/*
+	*/
+	GDir *Dir=g_dir_open("/dev",0,NULL);
+	const char* file;
+	
+	while( ( file=g_dir_read_name(Dir) )!=NULL ){
+
+		if ( strstr(file, "video")!=NULL ){
+			char deviceX[32];
+			strcpy(deviceX, "/dev/");
+			strcat(deviceX, file);
+			
+			gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(format_deviceListComboBox), deviceX, deviceX);
+		}
+	}
+	g_signal_connect(format_deviceListComboBox, "changed", G_CALLBACK(format_deviceListcomboBox_value_changed_cb), NULL);
+	g_dir_close(Dir);
 }
 
 static void cameraSettingsDialog__append_controls(){
@@ -122,7 +159,7 @@ static void cameraSettingsDialog__append_controls(){
          			
 				}
 				gtk_combo_box_set_active(GTK_COMBO_BOX(slider), queryctrl.default_value);
-				g_signal_connect(slider, "changed", G_CALLBACK(cameraCtrl_comboBox_value_changed_cb), NULL);
+				g_signal_connect(slider, "changed", G_CALLBACK(cameraCtrl_comboBox_value_changed_cb), (gpointer)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));
 				
 				queryctrl.id=(queryctrl.id|V4L2_CTRL_FLAG_NEXT_CTRL);//de-reverse effect of flag V4L2_CTRL_FLAG_NEXT_CTRL;	
 			}
@@ -131,7 +168,7 @@ static void cameraSettingsDialog__append_controls(){
 				gtk_widget_set_halign(slider, GTK_ALIGN_START);
 				gtk_widget_set_margin_end(slider, 50);
 				
-				g_signal_connect(slider, "state-set", G_CALLBACK(cameraCtrl_switch_value_changed_cb), NULL);
+				g_signal_connect(slider, "state-set", G_CALLBACK(cameraCtrl_switch_value_changed_cb), (gpointer)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));
 			}
 			else{
 			slider=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,
@@ -154,7 +191,7 @@ static void cameraSettingsDialog__append_controls(){
 				gtk_widget_set_sensitive(slider, 0);//disable if flag set
 				
 			else if( GTK_IS_SCALE(slider))
-				g_signal_connect(slider, "value-changed", G_CALLBACK(cameraCtrl_slider_value_changed_cb),(void*)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));//XOR to get control id
+				g_signal_connect(slider, "value-changed", G_CALLBACK(cameraCtrl_slider_value_changed_cb),(gpointer)(uintptr_t)(queryctrl.id^V4L2_CTRL_FLAG_NEXT_CTRL));//XOR to get control id
 
 	}
 	pango_attr_list_unref(Attrs);
@@ -172,6 +209,7 @@ int cameraSettingsDialog__open_display_window(){
 		cameraSettingsDialog__display_window=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"cameraSettingsDialog"));	
 		rootBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"rootBox"));	
 		format_ResolutionComboBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"format_ResolutionComboBox"));
+		format_deviceListComboBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"format_deviceListComboBox"));
 		
 		cameraSettingsDialog__append_controls();
 		cameraSettingsDialog__append_formatControls();

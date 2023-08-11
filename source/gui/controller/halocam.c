@@ -13,7 +13,7 @@ gpointer app_shutdown_cb(){
 }
 
 int main(int argc, char **argv){
-	camera__activate(); 		//initialize camera
+	camera__activate(NULL); 		//initialize camera
 
 	GtkApplication *app;
     int stat;

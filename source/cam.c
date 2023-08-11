@@ -208,17 +208,18 @@ int camera__control__get_ctrl(){
 
 	return retval;		
 }
-
+//static void set_streaming(int);
 void set_format(int width,int height,int pixfmt,int pixfield){
 	//Custom camera resolution
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	
 	get_format(0);	//dump default format options to frame_size
 	
 	if(  (width | height| pixfmt | pixfield)!=0  ){
                 fmt.fmt.pix.width       = width;
                 fmt.fmt.pix.height      = height;
-                fmt.fmt.pix.pixelformat = pixfmt;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
-                fmt.fmt.pix.field       = pixfield;//V4L2_FIELD_INTERLACED;
+                //fmt.fmt.pix.pixelformat = pixfmt;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
+                //fmt.fmt.pix.field       = pixfield;//V4L2_FIELD_INTERLACED;
     
 
 				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
@@ -237,7 +238,7 @@ void set_format(int width,int height,int pixfmt,int pixfield){
 						printf("retry fmt set\n");
 					}else{
 					exit( errno );}
-				}
+				}printf("set format done\n");
     }
     /* Buggy driver paranoia. */
         unsigned int min = fmt.fmt.pix.width * 2;
@@ -491,9 +492,14 @@ void print_specs(){
             buffer_format,fmt_desc.description);
 }
 
-int camera__activate(){
+int camera__activate(const char* device_path){
 	//try to open camera as read-write mode
-    Camera.name="/dev/video0";
+	if(device_path==NULL)
+    	Camera.name="/dev/video0";
+    else
+    	Camera.name=(char*)device_path;
+    	
+    printf("%s activating..\n",Camera.name);
     
     if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
@@ -511,13 +517,13 @@ int camera__activate(){
     return 0;
 }
 
-static void stop_streaming(){
+static void set_streaming(int control_value){
 
 	switch (Camera.IO_METHOD) {
 
         	case V4L2_MEMORY_USERPTR:
 		    case V4L2_MEMORY_MMAP:
-		    	if (-1 == xioctl(Camera.fd, VIDIOC_STREAMOFF, &cam_buf.type)){
+		    	if (-1 == xioctl(Camera.fd, control_value, &cam_buf.type)){
 							perror("stop streaming(VIDIOC_STREAMOFF)");
 		                    exit(errno);
 				}
@@ -532,7 +538,7 @@ static void close_device(void){
         Camera.fd = -1;
 }
 int camera__deactivate(){
-		stop_streaming();
+		set_streaming(VIDIOC_STREAMOFF);
 		
         switch (Camera.IO_METHOD) {
         	
