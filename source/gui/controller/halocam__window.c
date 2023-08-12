@@ -296,48 +296,70 @@ static GMutex camera_access_mutex; //shared between display and capture button
 *
 *
 */
+gboolean drawText(cairo_t *cr, char* text, gboolean show_error){
+	cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
+	
+	cairo_select_font_face(cr, "Purisa", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, 22);
+	cairo_move_to(cr, 20, 20);
+	cairo_show_text(cr, text);
+	
+	if(show_error){
+		cairo_show_text(cr, ":");
+		cairo_show_text(cr, strerror(errno));
+	}
+	return G_SOURCE_REMOVE;
+}
+
 gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 
 	g_mutex_lock (&camera_access_mutex);
 	
 	if (imageBox!=NULL || imageBoxLayout!=NULL){
 		uint8_t* buffer=(uint8_t* )camera__capture(V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
-		
-		//1. move data to gdkpixbuff struct
-		GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
-			  (uint8_t*)buffer,
-			  GDK_COLORSPACE_RGB,
-			  0,
-			  8,//int bits_per_sample=
-			  fmt.fmt.pix.width,
-			  fmt.fmt.pix.height,
-			  fmt.fmt.pix.width*3,
-			  NULL,//GdkPixbufDestroyNotify destroy_fn=
-			  NULL//gpointer destroy_fn_data
-		);
-		
-		//2. scale gdkpixbuff iamge struct .ERROR-->Leads buffer overflow. Could not manage the struct
-		GdkPixbuf* pixbuff_scaled=gdk_pixbuf_scale_simple (
-			  pixbuff,
-			  gtk_widget_get_allocated_width(imageBoxLayout),
-			  gtk_widget_get_allocated_height(imageBoxLayout),
-			  GDK_INTERP_BILINEAR
-		);
 
-		//3. set data to GtkImage object
-		//gtk_image_set_from_pixbuf(GTK_IMAGE(imageBox), pixbuff_scaled);//set method changes imageBox ton new image  and stimulates widget
-		gdk_cairo_set_source_pixbuf(cr, pixbuff_scaled, 0, 0);
-		cairo_paint(cr);
-		
-		//last step
-		g_object_unref( pixbuff_scaled );  //free pixbuff memory
-		free(buffer);						   //free buffer
-		
-		gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(imageBoxLayout),gtk_widget_get_allocated_height(imageBoxLayout));//send draw signal
-		g_mutex_unlock (&camera_access_mutex);
+		if ( !buffer ){
+			drawText(cr, "Buffer is Empty", 1);
 
-		}
-		return G_SOURCE_REMOVE;
+		}else{
+			//1. move data to gdkpixbuff struct
+			GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
+				  (uint8_t*)buffer,
+				  GDK_COLORSPACE_RGB,
+				  0,
+				  8,//int bits_per_sample=
+				  fmt.fmt.pix.width,
+				  fmt.fmt.pix.height,
+				  fmt.fmt.pix.width*3,
+				  NULL,//GdkPixbufDestroyNotify destroy_fn=
+				  NULL//gpointer destroy_fn_data
+			);
+			
+			//2. scale gdkpixbuff iamge struct .ERROR-->Leads buffer overflow. Could not manage the struct
+			GdkPixbuf* pixbuff_scaled=gdk_pixbuf_scale_simple (
+				  pixbuff,
+				  gtk_widget_get_allocated_width(imageBoxLayout),
+				  gtk_widget_get_allocated_height(imageBoxLayout),
+				  GDK_INTERP_BILINEAR
+			);
+
+			//3. set data to GtkImage object
+			//gtk_image_set_from_pixbuf(GTK_IMAGE(imageBox), pixbuff_scaled);//set method changes imageBox ton new image  and stimulates widget
+			gdk_cairo_set_source_pixbuf(cr, pixbuff_scaled, 0, 0);
+			cairo_paint(cr);
+			
+			//last step
+			g_object_unref( pixbuff_scaled );  //free pixbuff memory
+			free(buffer);						   //free buffer
+			
+			gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(imageBoxLayout),gtk_widget_get_allocated_height(imageBoxLayout));//send draw signal
+			
+
+			}
+	}
+	
+	g_mutex_unlock (&camera_access_mutex);
+	return G_SOURCE_REMOVE;
 }
 
 gboolean captureImage(gpointer data){

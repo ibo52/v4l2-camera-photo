@@ -49,6 +49,7 @@ typedef struct camera{
 	int fd;					//file descriptor of camera file
 	buff_ *buffer;			//cam output buffer that concatenated to mmap
 	int IO_METHOD;			//mmap, userptr or R/W
+	uint8_t IS_ACTIVE;		//return if camera active to send image data
 }camera; 
 
 
@@ -69,6 +70,8 @@ struct v4l2_requestbuffers req;
 */
 struct v4l2_queryctrl queryctrl;
 struct v4l2_querymenu querymenu;
+struct v4l2_frmsize_discrete USER_FRAME_SIZE;//user defined width and height frames for camera
+
 int xioctl(int fh, int request, void *arg){
     int r;
 
@@ -92,14 +95,14 @@ int get_frameSize(int index){
 			return 0;
 	}else{
 		if (errno!=EINVAL)
-			perror("VIDIOC_ENUM_FRAMESIZES");
+			perror(ANSI_COLOR_YELLOW"VIDIOC_ENUM_FRAMESIZES"ANSI_COLOR_RESET);
 		return -1;
 	}
 	
 	return 0;	
 }
 
-int get_format(int fmt_description_index){	//if 1: get all formats; else get first format
+static int get_format(int fmt_description_index){	//if 1: get all formats; else get first format
 	CLEAR(fmt_desc);
 	fmt_desc.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt_desc.index=fmt_description_index;
@@ -107,25 +110,25 @@ int get_format(int fmt_description_index){	//if 1: get all formats; else get fir
 	if (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FMT, &fmt_desc) ){
 
 			//printf("Format:%c%c%c%c(%s)\n", fmt_desc.pixelformat&0xff, (fmt_desc.pixelformat>>8)&0xff, (fmt_desc.pixelformat>>16)&0xff, (fmt_desc.pixelformat>>24)&0xff, fmt_desc.description);
-			get_frameSize(fmt_desc.pixelformat);
+			get_frameSize(0);
 
 			return 0;
 	}else{
-		perror("VIDIOC_ENUM_FMT");
+		perror(ANSI_COLOR_YELLOW"VIDIOC_ENUM_FMT"ANSI_COLOR_RESET);
 		return -1;
 	}	
 }
 
-static int get_parm(){	//if 1: get all formats; else get first format
+static int get_fps(){	//if 1: get parameters to 'struct param' (fps denominator numerator etc.)
 	struct v4l2_streamparm param;
 	CLEAR(param);
 	param.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	
 	if (-1 == xioctl(Camera.fd, VIDIOC_G_PARM, &param)) {
-    	perror("VIDIOC_G_PARM");
+    	perror(ANSI_COLOR_YELLOW"VIDIOC_G_PARM"ANSI_COLOR_RESET);
    		return -1;
 	}
-	printf("Camera Supports %i frames per %i seconds\n", param.parm.capture.timeperframe.denominator , param.parm.capture.timeperframe.numerator);
+	printf(ANSI_COLOR_YELLOW"Camera Supports %i frames per %i seconds\n"ANSI_COLOR_RESET, param.parm.capture.timeperframe.denominator , param.parm.capture.timeperframe.numerator);
 	return 0;		
 }
 
@@ -138,7 +141,7 @@ void camera__control__set(int ctrl_id, int val){
 	
 	if (-1 == xioctl(Camera.fd, VIDIOC_QUERYCTRL, &queryctrl)) {
 			if (errno != EINVAL) {
-				perror("VIDIOC_QUERYCTRL");
+				perror(ANSI_COLOR_RED"VIDIOC_QUERYCTRL"ANSI_COLOR_RESET);
 				exit(EXIT_FAILURE);
 			} else {
 				printf("Control \'%08x\' is NOT supported!\n", ctrl_id);
@@ -180,7 +183,7 @@ void camera__control__enumerate_menu(){
             //printf("%8i : %25s\n",querymenu.index, querymenu.name);
         }
     }else{
-    	perror("VIDIOC_QUERYMENU:menu index is more than maximum");
+    	perror(ANSI_COLOR_YELLOW"VIDIOC_QUERYMENU:menu index is more than maximum"ANSI_COLOR_RESET);
     }
 }
 
@@ -199,7 +202,7 @@ int camera__control__get_ctrl(){
 
 	}
 	else if ( errno != EINVAL ) {
-		perror("VIDIOC_QUERYCTRL");
+		perror(ANSI_COLOR_RED"VIDIOC_QUERYCTRL"ANSI_COLOR_RESET);
 		exit(errno);
 	}
 	else if (retval==-1){
@@ -209,37 +212,29 @@ int camera__control__get_ctrl(){
 	return retval;		
 }
 //static void set_streaming(int);
-void set_format(int width,int height,int pixfmt,int pixfield){
+static void set_format(int width,int height){
 	//Custom camera resolution
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	
-	get_format(0);	//dump default format options to frame_size
-	
-	if(  (width | height| pixfmt | pixfield)!=0  ){
+	if(  (width | height)  ){
                 fmt.fmt.pix.width       = width;
                 fmt.fmt.pix.height      = height;
-                //fmt.fmt.pix.pixelformat = pixfmt;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
+                fmt.fmt.pix.pixelformat = frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
                 //fmt.fmt.pix.field       = pixfield;//V4L2_FIELD_INTERLACED;
-    
 
-				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
-					perror("Setting Pixel Format");
-					exit(errno);
-				}
+
     }else{		//Set default best settings by querying device
     			fmt.fmt.pix.width       = frame_size.discrete.width;
                 fmt.fmt.pix.height      = frame_size.discrete.height;
                 fmt.fmt.pix.pixelformat = frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
 
-				//get default camera formats to fmt struct
-				if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
-					perror("Get Default Pixel Format");
-					if(errno==EBUSY){
-						printf("retry fmt set\n");
-					}else{
-					exit( errno );}
-				}printf("set format done\n");
     }
+    //get default camera formats to fmt struct
+	if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
+		perror(ANSI_COLOR_YELLOW"Set Pixel Format(VIDIOC_S_FMT)"ANSI_COLOR_RESET);
+		if( errno!=EBUSY )
+			exit( errno );
+		}
     /* Buggy driver paranoia. */
         unsigned int min = fmt.fmt.pix.width * 2;
         if (fmt.fmt.pix.bytesperline < min)
@@ -247,7 +242,6 @@ void set_format(int width,int height,int pixfmt,int pixfield){
         min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
         if (fmt.fmt.pix.sizeimage < min)
                 fmt.fmt.pix.sizeimage = min;
-    get_parm(); //get fps info
     //printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
@@ -262,18 +256,18 @@ static int init_camera(){
     if (-1 == xioctl(Camera.fd, VIDIOC_QUERYCAP, &caps) ) {
 			switch(errno){
 					case EINVAL:
-						fprintf(stdout,"%s is not a V4L2 device: errno%d:%s\n",Camera.name, errno, strerror(errno));
+						fprintf(stdout,ANSI_COLOR_RED"%s is not a V4L2 device: errno%d:%s\n"ANSI_COLOR_RESET ,Camera.name, errno, strerror(errno));
 				    	exit(errno);
 				    	
 					default:
-						perror("VIDIOC_QUERYCAP");
+						perror(ANSI_COLOR_RED"VIDIOC_QUERYCAP"ANSI_COLOR_RESET);
 				    	exit(errno);
 					
 			}
 
     }//check if device is a video camera
     if (!(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-                fprintf(stderr, "%s is not a video capture device\n",Camera.name);
+                fprintf(stderr, ANSI_COLOR_RED"%s is not a video capture device\n"ANSI_COLOR_RESET,Camera.name);
                 exit(errno);
 	}
 	/*
@@ -288,22 +282,22 @@ static int init_camera(){
         if (-1 == xioctl(Camera.fd, VIDIOC_S_CROP, &crop)) {
             switch (errno) {
             case EINVAL:
-                perror("Cropping is not supported");
+                perror(ANSI_COLOR_YELLOW"Cropping is not supported"ANSI_COLOR_RESET);
                 break;
                 
             default:
-                perror("VIDIOC_S_CROP error: (errors ignored)");
+                perror(ANSI_COLOR_YELLOW"VIDIOC_S_CROP error: (errors ignored)"ANSI_COLOR_RESET);
                 break;
             }
         }
         //printf("cropcap bounds: %d %d %d %d \n", cropcap.bounds.left, cropcap.bounds.top, cropcap.bounds.width, cropcap.bounds.height);
     } else {
-        perror("VIDIOC_CROPCAP error(errors ignored):");
+        perror(ANSI_COLOR_YELLOW"VIDIOC_CROPCAP error(errors ignored):"ANSI_COLOR_RESET);
     }
 
     /*request FORMAT SETTİNGS */
     //https://www.kernel.org/doc/html/v4.11/media/uapi/v4l/vidioc-cropcap.html#c.v4l2_cropcap
-    set_format(0,0,0,0);//automaticly format to default best format
+    
     return 0;
 }
 
@@ -321,11 +315,11 @@ static int init_mmap(int fd)
     	switch(errno){
     	
     		case EINVAL:
-    			fprintf(stderr, "%s does not support memory mapping I/O. Errno:%d->%s\n",Camera.name, errno, strerror(errno));
+    			fprintf(stderr, ANSI_COLOR_RED"%s does not support memory mapping I/O."ANSI_COLOR_RED" Errno:%d->%s\n"ANSI_COLOR_RESET ,Camera.name, errno, strerror(errno));
     			exit(errno);
     			
     		default:
-    			perror("Requesting memory buffer");
+    			perror(ANSI_COLOR_RED"Requesting memory buffer"ANSI_COLOR_RESET);
         		exit(errno);
     	}
     }
@@ -349,7 +343,7 @@ static int init_mmap(int fd)
 		buf.index = i;
 		
 		if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf)){
-		    perror("VIDIOC_QUERYBUF");
+		    perror(ANSI_COLOR_RED"VIDIOC_QUERYBUF"ANSI_COLOR_RESET);
 		    exit(errno);
 		}
 		
@@ -358,7 +352,7 @@ static int init_mmap(int fd)
 		Camera.buffer[i].address = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
 		
 		if (MAP_FAILED == Camera.buffer ){
-			perror("mmap");
+			perror(ANSI_COLOR_RED"mmap"ANSI_COLOR_RESET);
 			exit(errno);
 		}
 	}
@@ -411,20 +405,26 @@ static int ready_to_capture(){
 			*/
 			if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
 			{//queue buffers to fill camera data
-				perror("VIDIOC_QBUF");
+				perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
 				exit(errno);
 			}
 	}
 	
     if(-1 == xioctl(Camera.fd, VIDIOC_STREAMON, &cam_buf.type))
     {//switch streaming on
-        perror("VIDIOC_STREAMON");
+        perror(ANSI_COLOR_RED"VIDIOC_STREAMON"ANSI_COLOR_RESET);
         exit(errno);
     }
-	
+	Camera.IS_ACTIVE=1;
     return 0;
 }
 int dequeue_buff(){
+
+	if( !Camera.IS_ACTIVE ){
+		printf("camera is not active:\n");
+		errno=ENODATA;
+		return -1;
+	}
 	/**/
     fd_set fds;
     FD_ZERO(&fds);
@@ -437,7 +437,7 @@ int dequeue_buff(){
     if(-1 == r)
     {
     	if (EINTR != errno){
-        	perror("select() fail");
+        	perror(ANSI_COLOR_RED"select() fail"ANSI_COLOR_RESET);
         	exit(errno);
         }
     }
@@ -449,8 +449,8 @@ int dequeue_buff(){
 	//took the frame and retrieve
     if(-1 == xioctl(Camera.fd, VIDIOC_DQBUF, &cam_buf))
     {
-        perror("VIDIOC_DQBUF");
-        return 1;
+        perror(ANSI_COLOR_YELLOW"VIDIOC_DQBUF"ANSI_COLOR_RESET);
+        return -1;
     }
 
 	return 0;
@@ -490,26 +490,33 @@ void print_specs(){
             fmt.fmt.pix.width,
             fmt.fmt.pix.height,
             buffer_format,fmt_desc.description);
+            
+            get_fps(); //get fps info
 }
 
 int camera__activate(const char* device_path){
 	//try to open camera as read-write mode
+	CLEAR(Camera);
 	if(device_path==NULL)
     	Camera.name="/dev/video0";
     else
     	Camera.name=(char*)device_path;
     	
     printf("%s activating..\n",Camera.name);
-    
+    //open camera file
     if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
         char msg[64]={'0'};
-        sprintf(msg,"Could not open '%s'",Camera.name);
+        sprintf(msg,ANSI_COLOR_RED"Could not open"ANSI_COLOR_RESET" '%s'",Camera.name);
         perror(msg);
         return Camera.fd;
     }
 
     init_camera(); 			//prepare camera by getting info
+    
+    get_format(0);			//get default format options to frame_size(for required for set_format)
+    printf(ANSI_COLOR_BLUE"frame size:%ix%i\n"ANSI_COLOR_RESET, fmt.fmt.pix.width, fmt.fmt.pix.height);
+    set_format(USER_FRAME_SIZE.width, USER_FRAME_SIZE.height);		//automaticly format to default best format
     print_specs();
     init_mmap(Camera.fd);	//open memory map and concatenate to buffer
 	ready_to_capture();		//adjust camera buffers and open streaming
@@ -517,22 +524,28 @@ int camera__activate(const char* device_path){
     return 0;
 }
 
-static void set_streaming(int control_value){
+void set_streaming(int control_value){
 
 	switch (Camera.IO_METHOD) {
 
         	case V4L2_MEMORY_USERPTR:
 		    case V4L2_MEMORY_MMAP:
 		    	if (-1 == xioctl(Camera.fd, control_value, &cam_buf.type)){
-							perror("stop streaming(VIDIOC_STREAMOFF)");
+							perror(ANSI_COLOR_RED"Streaming (VIDIOC_STREAM_X)"ANSI_COLOR_RESET);
 		                    exit(errno);
+				}else{
+
+					if (control_value==VIDIOC_STREAMON ){
+						ready_to_capture();
+						Camera.IS_ACTIVE=1;
+					}
 				}
 		        break;
 		}
 }
 static void close_device(void){
         if (-1 == close(Camera.fd)){
-        		perror("Camera could not closed");
+        		perror(ANSI_COLOR_RED"Camera could not closed"ANSI_COLOR_RESET);
                 exit(errno);
 		}
         Camera.fd = -1;
@@ -545,7 +558,7 @@ int camera__deactivate(){
 		    case V4L2_MEMORY_MMAP:
 		    	for (int i = 0; i < req.count; i++){
 					if (-1 == munmap( Camera.buffer[i].address, Camera.buffer[i].length) ){
-							perror("Camera deactivate(munmap)");
+							perror(ANSI_COLOR_RED"Camera deactivate(munmap)"ANSI_COLOR_RESET);
 							exit(errno);
 					}
 		    	}
@@ -582,7 +595,7 @@ uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int hei
 	rc = jpeg_read_header(&cinfo, TRUE);
 
 	if (rc != 1) {
-		perror("Could not decode. Possibly broken JPEG");
+		perror(ANSI_COLOR_RED"Could not decode."ANSI_COLOR_YELLOW" Possibly broken JPEG"ANSI_COLOR_RESET);
 		exit(-1);
 	}
 
@@ -614,26 +627,28 @@ uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int hei
 intptr_t* camera__capture(int buffer_type){
 	
 	intptr_t* rgbBuff;
-	dequeue_buff();//io to dequeue buffer. Queueing made here(end of this function) after image processed
+	if( dequeue_buff() ){//io to dequeue buffer. Queueing made here(end of this function) after image processed
+		rgbBuff=NULL;
+		return rgbBuff;
+	}
 
-	switch (buffer_type){
-	
-		case V4L2_PIX_FMT_RGB24:
-			rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
-			break;
-			
-		default:
-			rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
-			break;
-	}
-	
-	//resend buffer to queue, so camera can fill it up again
-    if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
-	{
-				perror("VIDIOC_QBUF");
-				exit(errno);
-	}
-	
+		switch (buffer_type){
+		
+			case V4L2_PIX_FMT_RGB24:
+				rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+				break;
+				
+			default:
+				rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+				break;
+		}
+		
+		//resend buffer to queue, so camera can fill it up again
+		if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
+		{
+					perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
+					exit(errno);
+		}
     return rgbBuff;
 }
 
@@ -666,7 +681,7 @@ char *camera__imsave(const char* name){
 	int jpg_fd;
 	if(  ( jpg_fd= open(filename, O_WRONLY |O_TRUNC| O_CREAT, 0664) ) ==-1  ){
 		printf("%s->",filename);
-		perror("file open");
+		perror(ANSI_COLOR_RED"JPEG file open"ANSI_COLOR_RESET);
 		exit(jpg_fd);
 	}
 	

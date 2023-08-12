@@ -32,7 +32,7 @@ void cameraCtrl_switch_value_changed_cb(GtkSwitch* self,gboolean state, gpointer
 
 void formatCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
 	
-	/*
+	
 	int width, height;
 	char *string= gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) );
 	
@@ -42,12 +42,17 @@ void formatCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
 	strncpy(width_str, string, (height_str-string));
 	width=atoi(width_str);
 	
-	*height_str++;
+	height_str++;//increment pointer to skip char 'x'
 	height=atoi(height_str);
+	//-----------
+	camera__deactivate();
 	
-	g_print("string:%s  h:%i w:%i\n", string, height ,width);
-	*/
-	//set_format(width, height, 0, 0);
+	USER_FRAME_SIZE.width=width;
+	USER_FRAME_SIZE.height=height;
+
+	char *cameraPath=Camera.name;
+	camera__activate(cameraPath);
+	
 	
 }
 
