@@ -33,10 +33,19 @@ GtkWidget		*info__device_path;
 GtkWidget		*info__caps_listBox;
 GtkWidget		*info__caps_extra_field;
 //---INFO PAGE WİDGETS---
-
+static void* add_capability_label(GtkBox* containerBox, const char* label_text, PangoAttrList* Attrs){
+	GtkWidget *temp;//label to append containerbox
+	
+	temp=gtk_label_new(label_text);
+	gtk_label_set_attributes(GTK_LABEL(temp), Attrs);
+	gtk_widget_set_halign (temp, GTK_ALIGN_END);
+	gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
+	gtk_widget_set_visible(temp, 1);
+	
+	return temp;
+}
 static void parse_caps(uint32_t cap, GtkBox* containerBox){
 	//https://www.kernel.org/doc/html/v4.9/media/uapi/v4l/vidioc-querycap.html#id1
-	GtkWidget *temp;
 	
 	PangoAttrList *baseAttrs = pango_attr_list_new();//text formatting
 	pango_attr_list_insert(baseAttrs, pango_attr_weight_new(PANGO_WEIGHT_BOLD));
@@ -45,149 +54,61 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 	
 	PangoAttrList* Attrs=pango_attr_list_copy(baseAttrs);
 	pango_attr_list_insert(Attrs, pango_attr_foreground_new(0,32501,42501));
+		
+	if( cap & V4L2_CAP_VIDEO_CAPTURE )
+		add_capability_label(containerBox, "Video Capture(single-planar API)", Attrs);
 	
-	if( cap & V4L2_CAP_VIDEO_CAPTURE ){
-		temp=gtk_label_new("Video Capture(single-planar API)");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_VIDEO_OUTPUT ){
-		temp=gtk_label_new("Video Output(single-planar API)");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_VIDEO_OVERLAY ){
-		temp=gtk_label_new("Video Overlay");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_VBI_CAPTURE ){
-		temp=gtk_label_new("Raw VBI");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
+	if( cap & V4L2_CAP_VIDEO_OUTPUT )
+		add_capability_label(containerBox, "Video Output(single-planar API)", Attrs);
+	
+	if( cap & V4L2_CAP_VIDEO_OVERLAY )
+		add_capability_label(containerBox, "Video Overlay", Attrs);
 
-	if( cap & V4L2_CAP_SLICED_VBI_CAPTURE ){
-		temp=gtk_label_new("Sliced VBI Capture");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	//------------------------
-	if( cap & V4L2_CAP_TUNER ){
-		temp=gtk_label_new("Has tuner(s) to demodulate a RF signal");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_AUDIO ){
-		temp=gtk_label_new("Audio I/O");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_RADIO ){
-		temp=gtk_label_new("This is a radio recevier");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_MODULATOR ){
-		temp=gtk_label_new("Has modulator(s) to emit RF signals");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_SDR_CAPTURE ){
-		temp=gtk_label_new("Software Defined Radio(SDR)");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_EXT_PIX_FORMAT ){
-		temp=gtk_label_new("Extended Pixel Format");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( ((cap>>16) & 0x80)==0x80){
-		temp=gtk_label_new("Metadata Capture");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	//---------------------------------
-	if( cap & V4L2_CAP_READWRITE ){
-		temp=gtk_label_new(" Read/Write I/O");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_ASYNCIO ){
-		temp=gtk_label_new("Asynchronous I/O");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_STREAMING){
-		temp=gtk_label_new("Streaming I/O");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
-	if( cap & V4L2_CAP_TOUCH ){
-		temp=gtk_label_new("Device is a Touch Device");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
-	}
+	if( cap & V4L2_CAP_VBI_CAPTURE )
+		add_capability_label(containerBox, "Raw VBI", Attrs);
+
+	if( cap & V4L2_CAP_SLICED_VBI_CAPTURE )
+		add_capability_label(containerBox, "Sliced VBI Capture", Attrs);
+	
+	if( cap & V4L2_CAP_TUNER )
+		add_capability_label(containerBox, "Has tuner(s) to demodulate a RF signal", Attrs);
+	
+	if( cap & V4L2_CAP_AUDIO )
+		add_capability_label(containerBox, "Audio I/O", Attrs);
+	
+	if( cap & V4L2_CAP_RADIO )
+		add_capability_label(containerBox, "This is a radio recevier", Attrs);
+	
+	if( cap & V4L2_CAP_MODULATOR )
+		add_capability_label(containerBox, "Has modulator(s) to emit RF signals", Attrs);
+	
+	if( cap & V4L2_CAP_SDR_CAPTURE )
+		add_capability_label(containerBox, "Software Defined Radio(SDR)", Attrs);
+
+	if( cap & V4L2_CAP_EXT_PIX_FORMAT )
+		add_capability_label(containerBox, "Extended Pixel Format", Attrs);
+	
+	if( ((cap>>16) & 0x80)==0x80)
+		add_capability_label(containerBox, "Metadata Capture", Attrs);
+
+	if( cap & V4L2_CAP_READWRITE )
+		add_capability_label(containerBox, " Read/Write I/O", Attrs);
+	
+	if( cap & V4L2_CAP_ASYNCIO )
+		add_capability_label(containerBox, "Asynchronous I/O", Attrs);
+	
+	if( cap & V4L2_CAP_STREAMING)
+		add_capability_label(containerBox, "Streaming I/O", Attrs);
+	
+	if( cap & V4L2_CAP_TOUCH )
+		add_capability_label(containerBox, "Device is a Touch Device", Attrs);
+	
 	if( cap & V4L2_CAP_DEVICE_CAPS ){
-		
+		//set capability labels for devie as individual
 		PangoAttrList* Attrs2=pango_attr_list_copy(Attrs);
 		pango_attr_list_insert(Attrs2, pango_attr_foreground_new(0,55535,50706));
-		
-		//set capability labels for just opened devie
-		temp=gtk_label_new("Individual Device Specs");
-		gtk_label_set_attributes(GTK_LABEL(temp),Attrs2);
-		gtk_widget_set_halign (temp, GTK_ALIGN_END);
-		gtk_box_pack_start(GTK_BOX(containerBox), temp ,1,1,1);
-		gtk_widget_set_visible(temp, 1);
+		GtkWidget* temp=add_capability_label(containerBox, "Individual Device Specs", Attrs2);
+		gtk_widget_set_halign (temp, GTK_ALIGN_START);
 		
 		//add seperator before new texts
 		GtkWidget *separator=gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
@@ -197,12 +118,10 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		//set capability hex label
 		char capability_[64];
 		sprintf(capability_,"Capabilities:\t\t\t\t\t%08x",caps.device_caps);
+
+		GtkWidget* temp2=add_capability_label(containerBox, capability_, baseAttrs);
+		gtk_widget_set_halign (temp2, GTK_ALIGN_START);
 		
-		GtkWidget *temp2=gtk_label_new(capability_);
-		gtk_label_set_attributes(GTK_LABEL(temp2),baseAttrs);
-		gtk_widget_set_halign (temp, GTK_ALIGN_START);
-		gtk_box_pack_start(GTK_BOX(containerBox), temp2 ,1,1,1);
-		gtk_widget_set_visible(temp2, 1);
 		//delete variables from mem
 		pango_attr_list_unref(Attrs2);
 		
@@ -213,25 +132,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 	pango_attr_list_unref(baseAttrs);
 	
 }
-int halocam__info_labels__activate(GtkBuilder		*builder){
-
-	info__driver_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__driver_label"));
-	info__card_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__card_label"));
-	info__bus_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__bus_label"));
-	info__version_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__version_label"));
-	info__caps_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_label"));
-	info__device_path=GTK_WIDGET(gtk_builder_get_object(builder,"info__device_path"));
-	
-	info__buff_width=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_width"));
-	info__buff_height=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_height"));
-	info__buff_format=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_format"));
-	info__buff_colorspace=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_colorspace"));
-	
-	info__caps_listBox=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_listBox"));
-	info__caps_extra_field=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_extra_field"));
-	/*
-	*
-	*/
+static void set_info_labels(void){
 	char temp[512]={'0'};
 	gtk_label_set_text(GTK_LABEL(info__device_path), Camera.name);
 	
@@ -280,12 +181,51 @@ int halocam__info_labels__activate(GtkBuilder		*builder){
 			}	
 	}
 	gtk_label_set_text(GTK_LABEL(info__buff_colorspace), temp);
+}
+int halocam__info_labels__set(void){
+
+	info__driver_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__driver_label"));
+	info__card_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__card_label"));
+	info__bus_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__bus_label"));
+	info__version_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__version_label"));
+	info__caps_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_label"));
+	info__device_path=GTK_WIDGET(gtk_builder_get_object(builder,"info__device_path"));
+	
+	info__buff_width=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_width"));
+	info__buff_height=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_height"));
+	info__buff_format=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_format"));
+	info__buff_colorspace=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_colorspace"));
+	
+	info__caps_listBox=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_listBox"));
+	info__caps_extra_field=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_extra_field"));
+	/*
+	*
+	*/
+	set_info_labels();
 	
 	parse_caps(caps.capabilities, GTK_BOX(info__caps_listBox));
 
 	return 0;
 }
+int halocam__info_labels__reset(gboolean semi_reset){
 
+	set_info_labels();
+	
+	if( !semi_reset ){
+		GList *children, *iter;//remove all children from container
+		
+		children=gtk_container_get_children( GTK_CONTAINER(info__caps_listBox) );
+		
+		for(iter=children; iter!=NULL; iter=g_list_next(iter) )
+			gtk_widget_destroy( GTK_WIDGET(iter->data) );
+		
+		g_list_free(children);
+		parse_caps(caps.capabilities, GTK_BOX(info__caps_listBox));
+		
+		}
+	
+	return 0;
+}
 
 /*
 *	CONTROLLER SIGNALS
@@ -405,7 +345,7 @@ void app_activate (GApplication *app, gpointer user_data) {
 	imageBox=GTK_WIDGET(gtk_builder_get_object(builder,"imageBox"));
 	captureButton=GTK_WIDGET(gtk_builder_get_object(builder,"captureButton"));
 
-	halocam__info_labels__activate(builder);//set labels for info page
+	halocam__info_labels__set();//set labels for info page
 	
 	galleryFlowBox=GTK_WIDGET(gtk_builder_get_object(builder,"galleryFlowBox"));
 	//g_signal_connect(window,"destroy",G_CALLBACK(g_application_quit),NULL);

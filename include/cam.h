@@ -25,6 +25,7 @@ extern struct v4l2_frmsize_discrete USER_FRAME_SIZE;//user defined width and hei
 */
 int 	 camera__activate(const char* device_path);	//opens camera
 int		 camera__deactivate();						//closes camera
+void 	 camera__print_specs(void);
 
 int camera__control__get_ctrl();					//get supported camera controls to 'struct queryctrl' one by one
 void camera__control__enumerate_menu();				//(if exist)get menu of control 'struct queryctrl' to 'struct querymenu' one by one

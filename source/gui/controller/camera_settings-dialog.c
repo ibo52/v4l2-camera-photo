@@ -2,6 +2,7 @@
 #include<stdint.h>
 #include <sys/ioctl.h>
 #include "cam.h"
+#include "halocam__window.h"
 
 GtkBuilder		*cameraSettingsDialog__builder;
 GtkWidget		*cameraSettingsDialog__display_window;
@@ -53,7 +54,7 @@ void formatCtrl_comboBox_value_changed_cb(GtkComboBox* self, gpointer ctrl_id){
 	char *cameraPath=Camera.name;
 	camera__activate(cameraPath);
 	
-	
+	halocam__info_labels__reset(1);
 }
 
 void format_deviceListcomboBox_value_changed_cb(GtkComboBox* self, gpointer user_data){
@@ -61,6 +62,7 @@ void format_deviceListcomboBox_value_changed_cb(GtkComboBox* self, gpointer user
 	//close the one, and open selected camera device
 	camera__deactivate();
 	camera__activate(  gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(self) )  );
+	halocam__info_labels__reset(0);
 }
 
 static void cameraSettingsDialog__append_formatControls(){
@@ -95,6 +97,7 @@ static void cameraSettingsDialog__append_formatControls(){
 			gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(format_deviceListComboBox), deviceX, deviceX);
 		}
 	}
+	gtk_combo_box_set_active_id(GTK_COMBO_BOX(format_deviceListComboBox), Camera.name);
 	g_signal_connect(format_deviceListComboBox, "changed", G_CALLBACK(format_deviceListcomboBox_value_changed_cb), NULL);
 	g_dir_close(Dir);
 }

@@ -32,8 +32,8 @@
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
 #define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
 #define ANSI_COLOR_MAGENTA "\x1b[35m"
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
@@ -133,6 +133,9 @@ static int get_fps(){	//if 1: get parameters to 'struct param' (fps denominator 
 }
 
 void camera__control__set(int ctrl_id, int val){
+/*
+*	Sets values for supported controls defined in 'struıct queryctrl'
+*/
 	struct v4l2_queryctrl queryctrl;
 	struct v4l2_control control;
 	
@@ -148,16 +151,16 @@ void camera__control__set(int ctrl_id, int val){
 			}
 	
 	} else if ( (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) ) {
-    		printf("Control \'%08x\' is NOT supported!\n", ctrl_id);
+    		printf("Control \'%08x\' is"ANSI_COLOR_RED"NOT supported!\n"ANSI_COLOR_RESET, ctrl_id);
 	
 	}else if ( (queryctrl.flags & V4L2_CTRL_FLAG_INACTIVE) ) {
-    		printf("Control \'%08x\' is inactive.\n", ctrl_id);
+    		printf("Control \'%08x\' is"ANSI_COLOR_RED" inactive.\n"ANSI_COLOR_RESET, ctrl_id);
 	
 	}else if ((queryctrl.flags & V4L2_CTRL_FLAG_READ_ONLY) ) {
-    		printf("Control \'%08x\' is read only.\n", ctrl_id);
+    		printf("Control \'%08x\' is"ANSI_COLOR_RED" read only.\n"ANSI_COLOR_RESET, ctrl_id);
 	
 	}else if ((queryctrl.flags & V4L2_CTRL_FLAG_GRABBED) ) {
-    		printf("Control \'%08x\'temporarily unchangeable.\n", ctrl_id);
+    		printf("Control \'%08x\'is"ANSI_COLOR_YELLOW"temporarily unchangeable.\n"ANSI_COLOR_RESET, ctrl_id);
 	
 	} else {
 
@@ -166,7 +169,7 @@ void camera__control__set(int ctrl_id, int val){
 			//printf("queryctrl value set to %i\n",control.value);
 			
 			if (-1 == xioctl(Camera.fd, VIDIOC_S_CTRL, &control)) {
-				fprintf(stdout, "VIDIOC_S_CTRL error for Ctrl id:%08x: %s\n", ctrl_id, strerror(errno));
+				fprintf(stdout, ANSI_COLOR_YELLOW"VIDIOC_S_CTRL(Control ID: %08x)"ANSI_COLOR_RESET": %s\n", ctrl_id, strerror(errno));
 				if(errno!=EBUSY)
 					exit(EXIT_FAILURE);
 			}
@@ -455,7 +458,7 @@ int dequeue_buff(){
 
 	return 0;
 }
-void print_specs(){
+void camera__print_specs(void){
 
 	char buffer_format[4];
 	int pixfmt=fmt.fmt.pix.pixelformat;
@@ -464,14 +467,74 @@ void print_specs(){
     	pixfmt>>=8;	
     };
     
-    printf(ANSI_COLOR_YELLOW "------------------------------\n"
+    fprintf(stdout, ANSI_COLOR_YELLOW "------------------------------\n"
     		"Device Info: %s\n"
             "------------------------------\n"ANSI_COLOR_RESET
             "  Driver: \"%s\"\n"
             "  Card:   \"%s\"\n"
             "  Bus:    \"%s\"\n"
             "  Version: %u.%u.%u\n"
-            "  Capabilities: %08x\n"
+            "  Capabilities: %08x\n"ANSI_COLOR_YELLOW
+            ,
+            Camera.name,
+            caps.driver,
+            caps.card,
+            caps.bus_info,
+            (caps.version>>16)&0xff, (caps.version>>8)&0xff, caps.version&0xff,
+            caps.capabilities
+            );
+            
+            int cap=caps.capabilities;
+
+            if( cap & V4L2_CAP_VIDEO_CAPTURE )
+				fprintf(stdout, "\t--> Video Capture(single-planar API)\n");
+	
+			if( cap & V4L2_CAP_VIDEO_OUTPUT )
+				fprintf(stdout, "\t--> Video Output(single-planar API)\n");
+			
+			if( cap & V4L2_CAP_VIDEO_OVERLAY )
+				fprintf(stdout, "\t--> Video Overlay\n");
+
+			if( cap & V4L2_CAP_VBI_CAPTURE )
+				fprintf(stdout, "\t--> Raw VBI\n");
+
+			if( cap & V4L2_CAP_SLICED_VBI_CAPTURE )
+				fprintf(stdout, "\t--> Sliced VBI Capture\n");
+			
+			if( cap & V4L2_CAP_TUNER )
+				fprintf(stdout, "\t--> Has tuner(s) to demodulate a RF signal\n");
+			
+			if( cap & V4L2_CAP_AUDIO )
+				fprintf(stdout, "\t--> Audio I/O\n");
+			
+			if( cap & V4L2_CAP_RADIO )
+				fprintf(stdout, "\t--> This is a radio recevier\n");
+			
+			if( cap & V4L2_CAP_MODULATOR )
+				fprintf(stdout, "\t--> Has modulator(s) to emit RF signals\n");
+			
+			if( cap & V4L2_CAP_SDR_CAPTURE )
+				fprintf(stdout, "\t--> Software Defined Radio(SDR)\n");
+
+			if( cap & V4L2_CAP_EXT_PIX_FORMAT )
+				fprintf(stdout, "\t--> Extended Pixel Format\n");
+			
+			if( ((cap>>16) & 0x80)==0x80)
+				fprintf(stdout, "\t--> Metadata Capture\n");
+
+			if( cap & V4L2_CAP_READWRITE )
+				fprintf(stdout, "\t--> Read/Write I/O\n");
+			
+			if( cap & V4L2_CAP_ASYNCIO )
+				fprintf(stdout, "\t--> Asynchronous I/O\n");
+			
+			if( cap & V4L2_CAP_STREAMING)
+				fprintf(stdout, "\t--> Streaming I/O\n");
+			
+			if( cap & V4L2_CAP_TOUCH )
+				fprintf(stdout, "\t--> Device is a Touch Device\n");
+            
+            fprintf(stdout, 
            ANSI_COLOR_GREEN "------------------------------\n"
             "Format properties\n"
             "------------------------------\n" ANSI_COLOR_CYAN
@@ -480,12 +543,6 @@ void print_specs(){
             "Buffer Format:	%s(%s)\n"
             "------------------------------\n" ANSI_COLOR_RESET
             ,
-            Camera.name,
-            caps.driver,
-            caps.card,
-            caps.bus_info,
-            (caps.version>>16)&0xff, (caps.version>>8)&0xff, caps.version&0xff,
-            caps.capabilities,
             //format properties
             fmt.fmt.pix.width,
             fmt.fmt.pix.height,
@@ -497,12 +554,12 @@ void print_specs(){
 int camera__activate(const char* device_path){
 	//try to open camera as read-write mode
 	CLEAR(Camera);
-	if(device_path==NULL)
+	
+	if(device_path==NULL)//if no args; select first one
     	Camera.name="/dev/video0";
     else
-    	Camera.name=(char*)device_path;
+    	Camera.name=(char*)device_path;//select desired camera
     	
-    printf("%s activating..\n",Camera.name);
     //open camera file
     if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
@@ -511,13 +568,11 @@ int camera__activate(const char* device_path){
         perror(msg);
         return Camera.fd;
     }
-
-    init_camera(); 			//prepare camera by getting info
     
+    init_camera(); 			//prepare camera by getting info
     get_format(0);			//get default format options to frame_size(for required for set_format)
-    printf(ANSI_COLOR_BLUE"frame size:%ix%i\n"ANSI_COLOR_RESET, fmt.fmt.pix.width, fmt.fmt.pix.height);
     set_format(USER_FRAME_SIZE.width, USER_FRAME_SIZE.height);		//automaticly format to default best format
-    print_specs();
+    camera__print_specs();
     init_mmap(Camera.fd);	//open memory map and concatenate to buffer
 	ready_to_capture();		//adjust camera buffers and open streaming
 	//init_userptr();
