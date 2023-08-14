@@ -593,7 +593,9 @@ void set_streaming(int control_value){
 					if (control_value==VIDIOC_STREAMON ){
 						ready_to_capture();
 						Camera.IS_ACTIVE=1;
-					}
+					}else{
+						Camera.IS_ACTIVE=0;
+						}
 				}
 		        break;
 		}
@@ -629,20 +631,58 @@ int camera__deactivate(){
 		return 0;
 }
 
-uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
+#include<setjmp.h>
+
+//----LİBJPEG USER ERROR HANDLING OVERRİDE
+typedef struct jpegErrorManager {
+    
+    struct jpeg_error_mgr pub;/* "public" fields */
+    jmp_buf setjmp_buffer;/* for return to caller */
+    char jpegLastErrorMsg[JMSG_LENGTH_MAX]; //keeps error
+
+}customJpegErrorManager;
+
+void jpegErrorExit (j_common_ptr cinfo){
+    /* cinfo->err actually points to a jpegErrorManager struct */
+    customJpegErrorManager* myerr = (customJpegErrorManager*) cinfo->err;
+    /* note : *(cinfo->err) is now equivalent to myerr->pub */
+
+    /* output_message is a method to print an error message */
+    /*(* (cinfo->err->output_message) ) (cinfo);*/      
+    
+    /* Create the message */
+    ( *(cinfo->err->format_message) ) (cinfo, myerr->jpegLastErrorMsg);
+
+    /* Jump to the setjmp point */
+    longjmp(myerr->setjmp_buffer, 1);
+  
+}
+
+static uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;
 	
 	// Variables for the decompressor itself
 	struct jpeg_decompress_struct cinfo;
-	struct jpeg_error_mgr jerr;
+	customJpegErrorManager jerr;//struct jpeg_error_mgr jerr;
 
 	// Variables for the output buffer, and how long it is
 	unsigned long processed_size;
 	unsigned char *processed_buffer;
 
-
-	cinfo.err = jpeg_std_error(&jerr);	
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = jpegErrorExit; //connect signal handler to our custom method
+	
+	if (setjmp(jerr.setjmp_buffer)) {
+        /* If we get here, the JPEG code has signaled an error. */
+        printf(ANSI_COLOR_RED"libjpeg.h: "ANSI_COLOR_YELLOW"%s\n"ANSI_COLOR_RESET, jerr.jpegLastErrorMsg);
+        jpeg_destroy_decompress(&cinfo);
+        
+        processed_buffer=NULL;
+        errno=EAGAIN;
+        return processed_buffer;
+    }
+	
 	jpeg_create_decompress(&cinfo);
 
 	jpeg_mem_src(&cinfo, buffer, buffsize);
