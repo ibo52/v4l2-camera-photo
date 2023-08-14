@@ -38,18 +38,12 @@
                 <property name="orientation">vertical</property>
                 <property name="spacing">1</property>
                 <child>
-                  <object class="GtkBox" id="imageBoxLayout">
+                  <object class="GtkAspectFrame" id="imageBoxLayout">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
-                    <property name="margin-left">5</property>
-                    <property name="margin-right">5</property>
-                    <property name="margin-start">5</property>
-                    <property name="margin-end">5</property>
-                    <property name="margin-top">5</property>
-                    <property name="margin-bottom">5</property>
-                    <property name="hexpand">True</property>
-                    <property name="vexpand">True</property>
-                    <property name="orientation">vertical</property>
+                    <property name="label-xalign">0</property>
+                    <property name="shadow-type">in</property>
+                    <property name="ratio">2</property>
                     <child>
                       <object class="GtkDrawingArea" id="imageBox">
                         <property name="width-request">480</property>
@@ -57,15 +51,10 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                       </object>
-                      <packing>
-                        <property name="expand">True</property>
-                        <property name="fill">True</property>
-                        <property name="position">0</property>
-                      </packing>
                     </child>
                   </object>
                   <packing>
-                    <property name="expand">False</property>
+                    <property name="expand">True</property>
                     <property name="fill">True</property>
                     <property name="position">0</property>
                   </packing>
@@ -634,6 +623,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="right-justified">True</property>
+                        <property name="use-underline">True</property>
                         <property name="use-stock">True</property>
                         <property name="always-show-image">True</property>
                         <signal name="activate" handler="ShowPreferencesWindowButton_activate_cb" swapped="no"/>

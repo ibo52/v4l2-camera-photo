@@ -274,12 +274,12 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 				  NULL,//GdkPixbufDestroyNotify destroy_fn=
 				  NULL//gpointer destroy_fn_data
 			);
-			
+
 			//2. scale gdkpixbuff iamge struct .ERROR-->Leads buffer overflow. Could not manage the struct
 			GdkPixbuf* pixbuff_scaled=gdk_pixbuf_scale_simple (
 				  pixbuff,
-				  gtk_widget_get_allocated_width(imageBoxLayout),
-				  gtk_widget_get_allocated_height(imageBoxLayout),
+				  gtk_widget_get_allocated_width(imageBox),
+				  gtk_widget_get_allocated_height(imageBox),
 				  GDK_INTERP_BILINEAR
 			);
 
