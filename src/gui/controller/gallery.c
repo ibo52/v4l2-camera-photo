@@ -77,7 +77,7 @@ int gallery__open_display_window( const char* file_path){
 		gtk_window_close (GTK_WINDOW(gallery__display_window));
 	}
 		
-		gallery__builder=gtk_builder_new_from_file("../resources/ui/gallery.glade");
+		gallery__builder=gtk_builder_new_from_file("../resources/view/gallery.glade");
 	
 		gallery__display_window=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"gallery__display_window"));	
 		gallery__laplaceButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"laplaceButton"));	

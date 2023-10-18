@@ -223,7 +223,7 @@ int cameraSettingsDialog__open_display_window(void){
 		gtk_window_close (GTK_WINDOW(cameraSettingsDialog__display_window));
 	}
 		
-		cameraSettingsDialog__builder=gtk_builder_new_from_file("../resources/ui/camera_settings.glade");
+		cameraSettingsDialog__builder=gtk_builder_new_from_file("../resources/view/camera_settings.glade");
 	
 		cameraSettingsDialog__display_window=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"cameraSettingsDialog"));	
 		rootBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"rootBox"));	

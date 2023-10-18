@@ -337,7 +337,7 @@ void app_activate (GApplication *app, gpointer user_data) {
 	
 	//gtk_init(&argc, &argv);//init gtk
 	
-	builder=gtk_builder_new_from_file("../resources/ui/halocam.glade");
+	builder=gtk_builder_new_from_file("../resources/view/halocam.glade");
 	
 	window=GTK_WIDGET(gtk_builder_get_object(builder,"window"));
 	rootLayout=GTK_WIDGET(gtk_builder_get_object(builder,"rootLayout"));

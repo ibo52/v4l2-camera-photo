@@ -11,7 +11,7 @@ int aboutDialog__open_display_window(){
 		gtk_window_close (GTK_WINDOW(aboutDialog__display_window));
 	}
 		
-		aboutDialog__builder=gtk_builder_new_from_file("../resources/ui/about-dialog.glade");
+		aboutDialog__builder=gtk_builder_new_from_file("../resources/view/about-dialog.glade");
 	
 		aboutDialog__display_window=GTK_WIDGET(gtk_builder_get_object(aboutDialog__builder,"window__aboutDialog"));	
 		

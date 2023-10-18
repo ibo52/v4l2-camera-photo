@@ -52,13 +52,13 @@ makedirs:
 	mkdir -p $(PROGRAM_ROOT_DIR)/images/ppm
 	mkdir -p $(PROGRAM_ROOT_DIR)/bin
 	mkdir -p $(PROGRAM_ROOT_DIR)/resources
-	mkdir -p $(PROGRAM_ROOT_DIR)/resources/ui
+	mkdir -p $(PROGRAM_ROOT_DIR)/resources/view
 	@echo "\n"
 	
 copyResources:
 	@echo "$(INFO_COLOR)Copying resource files"
 	@echo "======================$(RESET_COLOR)"
 	
-	cp -r source/gui/view/* $(PROGRAM_ROOT_DIR)/resources/ui
-	cp -r source/resource/* $(PROGRAM_ROOT_DIR)/resources
+	cp -r src/gui/view/* $(PROGRAM_ROOT_DIR)/resources/view
+	cp -r resources/* $(PROGRAM_ROOT_DIR)/resources
 	@echo "\n"
