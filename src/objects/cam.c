@@ -24,7 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <unistd.h>		//uint8_t
+#include <stdint.h>		//uint8_t
+#include <unistd.h>  //open, close
 #include <stdlib.h>
 #include <sys/mman.h>	//mmap
 #include <jpeglib.h>	//to decode jpg image buffer
@@ -39,56 +40,59 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
-typedef struct buff_{
+typedef struct __buff{
 	intptr_t* address;
 	size_t length;
-}buff_;
+}__buff;
 
-typedef struct camera{
+typedef struct __specs{
+	struct v4l2_format fmt;					//format specs of dev
+	struct v4l2_fmtdesc fmt_desc;			//default format desc
+	struct v4l2_frmsizeenum frame_size;		//enumerate available framesizes for camera formats
+	struct v4l2_buffer cam_buf; 			//camera buffer took from device, we can also use *buffer to access RGB data
+	struct v4l2_capability caps;			//keep device info and capabilities
+	struct v4l2_cropcap cropcap;			//default cropping capabilities
+	struct v4l2_crop crop;					//set crop settings
+	struct v4l2_requestbuffers req;
+	
+	struct v4l2_queryctrl queryctrl;
+	struct v4l2_querymenu querymenu;
+	struct v4l2_frmsize_discrete USER_FRAME_SIZE;//user defined width and height frames for camera
+}__specs;
+
+typedef struct _CameraObject{
 	char *name;				//camera path, default:/dev/video0 on main
 	int fd;					//file descriptor of camera file
-	buff_ *buffer;			//cam output buffer that concatenated to mmap
+	__buff *buffer;			//cam output buffer that concatenated to mmap
 	int IO_METHOD;			//mmap, userptr or R/W
 	uint8_t IS_ACTIVE;		//return if camera active to send image data
-}camera; 
+	__specs specs;
+}CameraObject; 
 
-
-camera Camera;
-
-struct v4l2_format fmt;					//format specs of dev
-struct v4l2_fmtdesc fmt_desc;			//default format desc
-struct v4l2_frmsizeenum frame_size;		//enumerate available framesizes for camera formats
-struct v4l2_buffer cam_buf; 			//camera buffer took from device, we can also use *buffer to access RGB data
-struct v4l2_capability caps;			//keep device info and capabilities
-struct v4l2_cropcap cropcap;			//default cropping capabilities
-struct v4l2_crop crop;					//set crop settings
-struct v4l2_requestbuffers req;
 /*
  *
  * 
  *  
 */
-struct v4l2_queryctrl queryctrl;
-struct v4l2_querymenu querymenu;
-struct v4l2_frmsize_discrete USER_FRAME_SIZE;//user defined width and height frames for camera
 
-int xioctl(int fh, int request, void *arg){
+static int xioctl(int fd, int request, void *arg){
     int r;
 
     do {
-            r = ioctl(fh, request, arg);
+            r = ioctl(fd, request, arg);
     } while (-1 == r && EINTR == errno);
 
     return r;
 }
 
-int get_frameSize(int index){
-	CLEAR(frame_size);
-	frame_size.type=V4L2_FRMSIZE_TYPE_DISCRETE;
-	frame_size.index= index;
-	frame_size.pixel_format=fmt_desc.pixelformat;		//calculate frame sizes for given pixel format
+int get_frameSize(CameraObject* self, int index){
+	CLEAR(self->specs.frame_size);
 	
-	if (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FRAMESIZES, &frame_size)){
+	self->specs.frame_size.type=V4L2_FRMSIZE_TYPE_DISCRETE;
+	self->specs.frame_size.index= index;
+	self->specs.frame_size.pixel_format=self->specs.fmt_desc.pixelformat;		//calculate frame sizes for given pixel format
+	
+	if (-1 != xioctl(self->fd, VIDIOC_ENUM_FRAMESIZES, &self->specs.frame_size)){
 
 			//printf("\t\tFrame Size:%u %u\n", frame_size.discrete.width, frame_size.discrete.height);
 			//frame_size.index++;
@@ -102,15 +106,15 @@ int get_frameSize(int index){
 	return 0;	
 }
 
-static int get_format(int fmt_description_index){	//if 1: get all formats; else get first format
-	CLEAR(fmt_desc);
-	fmt_desc.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	fmt_desc.index=fmt_description_index;
+static int get_format(CameraObject* self, int fmt_description_index){	//if 1: get all formats; else get first format
+	CLEAR(self->specs.fmt_desc);
+	self->specs.fmt_desc.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	self->specs.fmt_desc.index=fmt_description_index;
 	
-	if (-1 != xioctl(Camera.fd, VIDIOC_ENUM_FMT, &fmt_desc) ){
+	if (-1 != xioctl(self->fd, VIDIOC_ENUM_FMT, &self->specs.fmt_desc) ){
 
 			//printf("Format:%c%c%c%c(%s)\n", fmt_desc.pixelformat&0xff, (fmt_desc.pixelformat>>8)&0xff, (fmt_desc.pixelformat>>16)&0xff, (fmt_desc.pixelformat>>24)&0xff, fmt_desc.description);
-			get_frameSize(0);
+			get_frameSize(self, 0);
 
 			return 0;
 	}else{
@@ -119,12 +123,12 @@ static int get_format(int fmt_description_index){	//if 1: get all formats; else 
 	}	
 }
 
-static int get_fps(){	//if 1: get parameters to 'struct param' (fps denominator numerator etc.)
+static int camera__get_fps(CameraObject* self){	//if 1: get parameters to 'struct param' (fps denominator numerator etc.)
 	struct v4l2_streamparm param;
 	CLEAR(param);
 	param.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	
-	if (-1 == xioctl(Camera.fd, VIDIOC_G_PARM, &param)) {
+	if (-1 == xioctl(self->fd, VIDIOC_G_PARM, &param)) {
     	perror(ANSI_COLOR_YELLOW"VIDIOC_G_PARM"ANSI_COLOR_RESET);
    		return -1;
 	}
@@ -132,7 +136,7 @@ static int get_fps(){	//if 1: get parameters to 'struct param' (fps denominator 
 	return 0;		
 }
 
-void camera__control__set(int ctrl_id, int val){
+void camera__control__set(CameraObject* self, int ctrl_id, int val){
 /*
 *	Sets values for supported controls defined in 'struıct queryctrl'
 */
@@ -142,7 +146,7 @@ void camera__control__set(int ctrl_id, int val){
 	CLEAR(queryctrl);CLEAR(control);
 	queryctrl.id = ctrl_id;
 	
-	if (-1 == xioctl(Camera.fd, VIDIOC_QUERYCTRL, &queryctrl)) {
+	if (-1 == xioctl(self->fd, VIDIOC_QUERYCTRL, &queryctrl)) {
 			if (errno != EINVAL) {
 				perror(ANSI_COLOR_RED"VIDIOC_QUERYCTRL"ANSI_COLOR_RESET);
 				exit(EXIT_FAILURE);
@@ -168,7 +172,7 @@ void camera__control__set(int ctrl_id, int val){
 			control.value = val;//queryctrl.default_value;
 			//printf("queryctrl value set to %i\n",control.value);
 			
-			if (-1 == xioctl(Camera.fd, VIDIOC_S_CTRL, &control)) {
+			if (-1 == xioctl(self->fd, VIDIOC_S_CTRL, &control)) {
 				fprintf(stdout, ANSI_COLOR_YELLOW"VIDIOC_S_CTRL(Control ID: %08x)"ANSI_COLOR_RESET": %s\n", ctrl_id, strerror(errno));
 				if(errno!=EBUSY)
 					exit(EXIT_FAILURE);
@@ -176,13 +180,13 @@ void camera__control__set(int ctrl_id, int val){
 	}
 }
 
-void camera__control__enumerate_menu(){
+void camera__control__enumerate_menu(CameraObject* self){
 	// Writes informations to 'struct v4l2_querymenu'.
-    querymenu.id = queryctrl.id;
+    self->specs.querymenu.id = self->specs.queryctrl.id;
 
-    if (querymenu.index <= queryctrl.maximum) {
+    if (self->specs.querymenu.index <= self->specs.queryctrl.maximum) {
 
-        if ( 0 == xioctl(Camera.fd, VIDIOC_QUERYMENU, &querymenu) ) {
+        if ( 0 == xioctl(self->fd, VIDIOC_QUERYMENU, &self->specs.querymenu) ) {
             //printf("%8i : %25s\n",querymenu.index, querymenu.name);
         }
     }else{
@@ -190,18 +194,18 @@ void camera__control__enumerate_menu(){
     }
 }
 
-int camera__control__get_ctrl(){
+int camera__control__get_ctrl(CameraObject* self){
 	/*
 	*	Get control data to queryctrl struct. queryctrl.id=V4L2_CID_BASE have to set inside caller function.
 	*/
 	int retval;
 	
-	retval=xioctl(Camera.fd, VIDIOC_QUERYCTRL, &queryctrl);
+	retval=xioctl(self->fd, VIDIOC_QUERYCTRL, &self->specs.queryctrl);
 	if (0 == retval ) {
         	//values can be accessed by queryctrl struct
         	//printf("Control %s  min:%i max:%i default:%i\n",queryctrl.type, queryctrl.name, queryctrl.minimum, queryctrl.maximum, queryctrl.default_value);
         	//camera__control__set(queryctrl.id ,queryctrl.default_value);//reset to default parameters on init
-        	queryctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
+        	self->specs.queryctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
 
 	}
 	else if ( errno != EINVAL ) {
@@ -209,57 +213,57 @@ int camera__control__get_ctrl(){
 		exit(errno);
 	}
 	else if (retval==-1){
-		queryctrl.id=V4L2_CID_BASE;
+		self->specs.queryctrl.id=V4L2_CID_BASE;
 	}
 
 	return retval;		
 }
 //static void set_streaming(int);
-static void set_format(int width,int height){
+static void set_format(CameraObject* self, int width,int height){
 	//Custom camera resolution
-	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	self->specs.fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	
 	if(  (width | height)  ){
-                fmt.fmt.pix.width       = width;
-                fmt.fmt.pix.height      = height;
-                fmt.fmt.pix.pixelformat = frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
+                self->specs.fmt.fmt.pix.width       = width;
+                self->specs.fmt.fmt.pix.height      = height;
+                self->specs.fmt.fmt.pix.pixelformat = self->specs.frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
                 //fmt.fmt.pix.field       = pixfield;//V4L2_FIELD_INTERLACED;
 
 
     }else{		//Set default best settings by querying device
-    			fmt.fmt.pix.width       = frame_size.discrete.width;
-                fmt.fmt.pix.height      = frame_size.discrete.height;
-                fmt.fmt.pix.pixelformat = frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
+    			self->specs.fmt.fmt.pix.width       = self->specs.frame_size.discrete.width;
+                self->specs.fmt.fmt.pix.height      = self->specs.frame_size.discrete.height;
+                self->specs.fmt.fmt.pix.pixelformat = self->specs.frame_size.pixel_format;//V4L2_PIX_FMT_RGB24;//V4L2_PIX_FMT_MJPEG
 
     }
     //get default camera formats to fmt struct
-	if (-1 == xioctl(Camera.fd, VIDIOC_S_FMT, &fmt)){
+	if (-1 == xioctl(self->fd, VIDIOC_S_FMT, &self->specs.fmt)){
 		perror(ANSI_COLOR_YELLOW"Set Pixel Format(VIDIOC_S_FMT)"ANSI_COLOR_RESET);
 		if( errno!=EBUSY )
 			exit( errno );
 		}
     /* Buggy driver paranoia. */
-        unsigned int min = fmt.fmt.pix.width * 2;
-        if (fmt.fmt.pix.bytesperline < min)
-                fmt.fmt.pix.bytesperline = min;
-        min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
-        if (fmt.fmt.pix.sizeimage < min)
-                fmt.fmt.pix.sizeimage = min;
+        unsigned int min = self->specs.fmt.fmt.pix.width * 2;
+        if (self->specs.fmt.fmt.pix.bytesperline < min)
+                self->specs.fmt.fmt.pix.bytesperline = min;
+        min = self->specs.fmt.fmt.pix.bytesperline * self->specs.fmt.fmt.pix.height;
+        if (self->specs.fmt.fmt.pix.sizeimage < min)
+                self->specs.fmt.fmt.pix.sizeimage = min;
     //printf("Display resolution formatted to: %dx%d\n",fmt.fmt.pix.width,fmt.fmt.pix.height);
 }
 
-static int init_camera(){
+static int init_camera(CameraObject* self){
 
-    CLEAR(cropcap);	//clear data structs
-    CLEAR(fmt);
-    CLEAR(crop);
-    CLEAR(caps);
+    CLEAR(self->specs.cropcap);	//clear data structs
+    CLEAR(self->specs.fmt);
+    CLEAR(self->specs.crop);
+    CLEAR(self->specs.caps);
 
     //request capabilities of device
-    if (-1 == xioctl(Camera.fd, VIDIOC_QUERYCAP, &caps) ) {
+    if (-1 == xioctl(self->fd, VIDIOC_QUERYCAP, &self->specs.caps) ) {
 			switch(errno){
 					case EINVAL:
-						fprintf(stdout,ANSI_COLOR_RED"%s is not a V4L2 device: errno%d:%s\n"ANSI_COLOR_RESET ,Camera.name, errno, strerror(errno));
+						fprintf(stdout,ANSI_COLOR_RED"%s is not a V4L2 device: errno%d:%s\n"ANSI_COLOR_RESET ,self->name, errno, strerror(errno));
 				    	exit(errno);
 				    	
 					default:
@@ -269,20 +273,20 @@ static int init_camera(){
 			}
 
     }//check if device is a video camera
-    if (!(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-                fprintf(stderr, ANSI_COLOR_RED"%s is not a video capture device\n"ANSI_COLOR_RESET,Camera.name);
+    if (!(self->specs.caps.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+                fprintf(stderr, ANSI_COLOR_RED"%s is not a video capture device\n"ANSI_COLOR_RESET,self->name);
                 exit(errno);
 	}
 	/*
 	*/
-    cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    self->specs.cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
     //request crop capabilities(width,heigth,frame pos etc..)
-    if (0 == xioctl(Camera.fd, VIDIOC_CROPCAP, &cropcap)) {
-        crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        crop.c = cropcap.defrect; /* reset to default */
+    if (0 == xioctl(self->fd, VIDIOC_CROPCAP, &self->specs.cropcap)) {
+        self->specs.crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        self->specs.crop.c = self->specs.cropcap.defrect; /* reset to default */
 
-        if (-1 == xioctl(Camera.fd, VIDIOC_S_CROP, &crop)) {
+        if (-1 == xioctl(self->fd, VIDIOC_S_CROP, &self->specs.crop)) {
             switch (errno) {
             case EINVAL:
                 perror(ANSI_COLOR_YELLOW"Cropping is not supported"ANSI_COLOR_RESET);
@@ -304,21 +308,21 @@ static int init_camera(){
     return 0;
 }
 
-static int init_mmap(int fd)
+static int init_mmap(CameraObject* self)
 {
-	Camera.IO_METHOD=V4L2_MEMORY_MMAP;
+	self->IO_METHOD=V4L2_MEMORY_MMAP;
 	
-    CLEAR(req);
-    req.count = 4;
-    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    req.memory = V4L2_MEMORY_MMAP;
+    CLEAR(self->specs.req);
+    self->specs.req.count = 4;
+    self->specs.req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    self->specs.req.memory = V4L2_MEMORY_MMAP;
 
-    if (-1 == xioctl(fd, VIDIOC_REQBUFS, &req))
+    if (-1 == xioctl(self->fd, VIDIOC_REQBUFS, &self->specs.req))
     {
     	switch(errno){
     	
     		case EINVAL:
-    			fprintf(stderr, ANSI_COLOR_RED"%s does not support memory mapping I/O."ANSI_COLOR_RED" Errno:%d->%s\n"ANSI_COLOR_RESET ,Camera.name, errno, strerror(errno));
+    			fprintf(stderr, ANSI_COLOR_RED"%s does not support memory mapping I/O."ANSI_COLOR_RED" Errno:%d->%s\n"ANSI_COLOR_RESET , self->name, errno, strerror(errno));
     			exit(errno);
     			
     		default:
@@ -327,17 +331,17 @@ static int init_mmap(int fd)
     	}
     }
     
-    if(req.count < 4){
-    	fprintf(stdout, ANSI_COLOR_YELLOW"Insufficient buffer count(%i) on %s for queueing.\n", req.count, Camera.name);	
-    	if(req.count>0)
-    		fprintf(stdout, "Program will try to run %s with this number of buffer\n"ANSI_COLOR_RESET, Camera.name);
+    if(self->specs.req.count < 4){
+    	fprintf(stdout, ANSI_COLOR_YELLOW"Insufficient buffer count(%i) on %s for queueing.\n", self->specs.req.count, self->name);	
+    	if(self->specs.req.count>0)
+    		fprintf(stdout, "Program will try to run %s with this number of buffer\n"ANSI_COLOR_RESET, self->name);
     	else
     		exit(-1);
     }
     
-    Camera.buffer=calloc(req.count, sizeof(buff_));
+    self->buffer=calloc(self->specs.req.count, sizeof(__buff));
     
-    for (int i=0; i<req.count; i++){
+    for (int i=0; i < self->specs.req.count; i++){
 		struct v4l2_buffer buf;
 		
 		CLEAR(buf);
@@ -345,17 +349,17 @@ static int init_mmap(int fd)
 		buf.memory = V4L2_MEMORY_MMAP;
 		buf.index = i;
 		
-		if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf)){
+		if(-1 == xioctl(self->fd, VIDIOC_QUERYBUF, &buf)){
 		    perror(ANSI_COLOR_RED"VIDIOC_QUERYBUF"ANSI_COLOR_RESET);
 		    exit(errno);
 		}
 		
-		cam_buf.bytesused=buf.length;
-		Camera.buffer[i].length=buf.length;
-		Camera.buffer[i].address = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
+		self->specs.cam_buf.bytesused=buf.length;
+		self->buffer[i].length=buf.length;
+		self->buffer[i].address = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, self->fd, buf.m.offset);
 		
-		if (MAP_FAILED == Camera.buffer ){
-			perror(ANSI_COLOR_RED"mmap"ANSI_COLOR_RESET);
+		if (MAP_FAILED == self->buffer ){
+			perror(ANSI_COLOR_RED"Memory Mapping failed"ANSI_COLOR_RESET);
 			exit(errno);
 		}
 	}
@@ -388,17 +392,17 @@ static int init_userptr()
 
     return 0;
 }*/
-static int ready_to_capture(){
+static int ready_to_capture(CameraObject* self){
 /*
 *	Adjust the camera buffers and sets camera for streaming
 */
-    for(int i=0; i<req.count; i++){
+    for(int i=0; i<self->specs.req.count; i++){
 			//clear the struct which keep image
-			CLEAR(cam_buf);
+			CLEAR(self->specs.cam_buf);
 			
-			cam_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-			cam_buf.memory =Camera.IO_METHOD;
-    		cam_buf.index = i;
+			self->specs.cam_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			self->specs.cam_buf.memory =self->IO_METHOD;
+    		self->specs.cam_buf.index = i;
 			/*
 			if(Camera.IO_METHOD==V4L2_MEMORY_USERPTR)//additional settings for userptr method
 			{
@@ -406,24 +410,24 @@ static int ready_to_capture(){
 					cam_buf.length=fmt.fmt.pix.sizeimage;
 			}
 			*/
-			if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
+			if(-1 == xioctl(self->fd, VIDIOC_QBUF, &self->specs.cam_buf))
 			{//queue buffers to fill camera data
 				perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
 				exit(errno);
 			}
 	}
 	
-    if(-1 == xioctl(Camera.fd, VIDIOC_STREAMON, &cam_buf.type))
+    if(-1 == xioctl(self->fd, VIDIOC_STREAMON, &self->specs.cam_buf.type))
     {//switch streaming on
         perror(ANSI_COLOR_RED"VIDIOC_STREAMON"ANSI_COLOR_RESET);
         exit(errno);
     }
-	Camera.IS_ACTIVE=1;
+	self->IS_ACTIVE=1;
     return 0;
 }
-int dequeue_buff(){
+static int dequeue_buff(CameraObject* self){
 
-	if( !Camera.IS_ACTIVE ){
+	if( !self->IS_ACTIVE ){
 		printf("camera is not active:\n");
 		errno=ENODATA;
 		return -1;
@@ -431,12 +435,12 @@ int dequeue_buff(){
 	/**/
     fd_set fds;
     FD_ZERO(&fds);
-    FD_SET(Camera.fd, &fds);
+    FD_SET(self->fd, &fds);
 
     struct timeval tv = {0};
     tv.tv_sec = 2;
 
-    int r = select(Camera.fd+1, &fds, NULL, NULL, &tv);
+    int r = select(self->fd+1, &fds, NULL, NULL, &tv);
     if(-1 == r)
     {
     	if (EINTR != errno){
@@ -450,7 +454,7 @@ int dequeue_buff(){
 	}
 
 	//took the frame and retrieve
-    if(-1 == xioctl(Camera.fd, VIDIOC_DQBUF, &cam_buf))
+    if(-1 == xioctl(self->fd, VIDIOC_DQBUF, &self->specs.cam_buf))
     {
         perror(ANSI_COLOR_YELLOW"VIDIOC_DQBUF"ANSI_COLOR_RESET);
         return -1;
@@ -458,10 +462,10 @@ int dequeue_buff(){
 
 	return 0;
 }
-void camera__print_specs(void){
+void camera__print_specs(CameraObject* self){
 
 	char buffer_format[4];
-	int pixfmt=fmt.fmt.pix.pixelformat;
+	int pixfmt=self->specs.fmt.fmt.pix.pixelformat;
 	for(int i=0; i<4;i++){
     	buffer_format[i]= pixfmt & 0xFF;
     	pixfmt>>=8;	
@@ -476,15 +480,15 @@ void camera__print_specs(void){
             "  Version: %u.%u.%u\n"
             "  Capabilities: %08x\n"ANSI_COLOR_YELLOW
             ,
-            Camera.name,
-            caps.driver,
-            caps.card,
-            caps.bus_info,
-            (caps.version>>16)&0xff, (caps.version>>8)&0xff, caps.version&0xff,
-            caps.capabilities
+            self->name,
+            self->specs.caps.driver,
+            self->specs.caps.card,
+            self->specs.caps.bus_info,
+            (self->specs.caps.version>>16)&0xff, (self->specs.caps.version>>8)&0xff, self->specs.caps.version&0xff,
+            self->specs.caps.capabilities
             );
             
-            int cap=caps.capabilities;
+            int cap=self->specs.caps.capabilities;
 
             if( cap & V4L2_CAP_VIDEO_CAPTURE )
 				fprintf(stdout, "\t--> Video Capture(single-planar API)\n");
@@ -544,77 +548,70 @@ void camera__print_specs(void){
             "------------------------------\n" ANSI_COLOR_RESET
             ,
             //format properties
-            fmt.fmt.pix.width,
-            fmt.fmt.pix.height,
-            buffer_format,fmt_desc.description);
+            self->specs.fmt.fmt.pix.width,
+            self->specs.fmt.fmt.pix.height,
+            buffer_format, self->specs.fmt_desc.description);
             
-            get_fps(); //get fps info
+            camera__get_fps(self); //get fps info
 }
 
-int camera__activate(const char* device_path){
+int camera__activate(CameraObject* self){
 	//try to open camera as read-write mode
-	CLEAR(Camera);
-	
-	if(device_path==NULL)//if no args; select first one
-    	Camera.name="/dev/video0";
-    else
-    	Camera.name=(char*)device_path;//select desired camera
-    	
+	//CLEAR(self);
+
     //open camera file
-    if( ( Camera.fd = open(Camera.name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
+    if( ( self->fd = open(self->name, O_RDWR /* required */ | O_NONBLOCK, 0))==-1 ) {
     
-        char msg[64]={'0'};
-        sprintf(msg,ANSI_COLOR_RED"Could not open"ANSI_COLOR_RESET" '%s'",Camera.name);
-        perror(msg);
-        return Camera.fd;
+        fprintf(stderr, ANSI_COLOR_RED"Could not open"ANSI_COLOR_RESET" '%s': (%s)\n",self->name, strerror(errno));
+        return self->fd;
     }
     
-    init_camera(); 			//prepare camera by getting info
-    get_format(0);			//get default format options to frame_size(for required for set_format)
-    set_format(USER_FRAME_SIZE.width, USER_FRAME_SIZE.height);		//automaticly format to default best format
-    camera__print_specs();
-    init_mmap(Camera.fd);	//open memory map and concatenate to buffer
-	ready_to_capture();		//adjust camera buffers and open streaming
+    init_camera(self); 			//prepare camera by getting info
+    get_format(self, 0);			//get default format options to frame_size(for required for set_format)
+    set_format(self, self->specs.USER_FRAME_SIZE.width, self->specs.USER_FRAME_SIZE.height);		//automaticly format to default best format
+    camera__print_specs(self);
+    init_mmap(self);	//open memory map and concatenate to buffer
+	ready_to_capture(self);		//adjust camera buffers and open streaming
 	//init_userptr();
     return 0;
 }
 
-void set_streaming(int control_value){
+void set_streaming(CameraObject* self, int control_value){
 
-	switch (Camera.IO_METHOD) {
+	switch (self->IO_METHOD) {
 
         	case V4L2_MEMORY_USERPTR:
 		    case V4L2_MEMORY_MMAP:
-		    	if (-1 == xioctl(Camera.fd, control_value, &cam_buf.type)){
+		    	if (-1 == xioctl(self->fd, control_value, &self->specs.cam_buf.type)){
 							perror(ANSI_COLOR_RED"Streaming (VIDIOC_STREAM_X)"ANSI_COLOR_RESET);
 		                    exit(errno);
 				}else{
 
 					if (control_value==VIDIOC_STREAMON ){
-						ready_to_capture();
-						Camera.IS_ACTIVE=1;
+						ready_to_capture(self);
+						self->IS_ACTIVE=1;
 					}else{
-						Camera.IS_ACTIVE=0;
+						self->IS_ACTIVE=0;
 						}
 				}
 		        break;
 		}
 }
-static void close_device(void){
-        if (-1 == close(Camera.fd)){
+static void close_device(CameraObject* self){
+        if (-1 == close(self->fd)){
         		perror(ANSI_COLOR_RED"Camera could not closed"ANSI_COLOR_RESET);
                 exit(errno);
 		}
-        Camera.fd = -1;
+        self->fd = -1;
 }
-int camera__deactivate(){
-		set_streaming(VIDIOC_STREAMOFF);
+int camera__deactivate(CameraObject* self){
+		set_streaming(self, VIDIOC_STREAMOFF);
 		
-        switch (Camera.IO_METHOD) {
+        switch (self->IO_METHOD) {
         	
 		    case V4L2_MEMORY_MMAP:
-		    	for (int i = 0; i < req.count; i++){
-					if (-1 == munmap( Camera.buffer[i].address, Camera.buffer[i].length) ){
+		    	for (int i = 0; i < self->specs.req.count; i++){
+					if (-1 == munmap( self->buffer[i].address, self->buffer[i].length) ){
 							perror(ANSI_COLOR_RED"Camera deactivate(munmap)"ANSI_COLOR_RESET);
 							exit(errno);
 					}
@@ -622,12 +619,12 @@ int camera__deactivate(){
 		        break;
 		    
 		    case V4L2_MEMORY_USERPTR:
-        		for (int i = 0; i < req.count; i++){
-					free( Camera.buffer[i].address );
+        		for (int i = 0; i < self->specs.req.count; i++){
+					free( self->buffer[i].address );
 		    	}
         		break;
 		}
-		close_device();
+		close_device(self);
 		return 0;
 }
 
@@ -719,10 +716,10 @@ static uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,
 	return processed_buffer;
 	
 }
-intptr_t* camera__capture(int buffer_type){
+intptr_t* camera__capture(CameraObject* self, int buffer_type){
 	
 	intptr_t* rgbBuff;
-	if( dequeue_buff() ){//io to dequeue buffer. Queueing made here(end of this function) after image processed
+	if( dequeue_buff(self) ){//io to dequeue buffer. Queueing made here(end of this function) after image processed
 		rgbBuff=NULL;
 		return rgbBuff;
 	}
@@ -730,32 +727,46 @@ intptr_t* camera__capture(int buffer_type){
 		switch (buffer_type){
 		
 			case V4L2_PIX_FMT_RGB24:
-				rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+				rgbBuff=(intptr_t*)camera__decode_rgb( 
+				(uint8_t*)self->buffer[ self->specs.cam_buf.index ].address, 
+				self->specs.cam_buf.bytesused , 
+				self->specs.fmt.fmt.pix.width, 
+				self->specs.fmt.fmt.pix.height);
 				break;
 				
+			case V4L2_PIX_FMT_JPEG://if requested its native buffer(possibly jpeg)  !! returns struct __buff
+				if(self->specs.fmt.fmt.pix.pixelformat&V4L2_PIX_FMT_JPEG){
+					rgbBuff=(intptr_t*)self->buffer[ self->specs.cam_buf.index ].address;
+				}
+				break;
+			
 			default:
-				rgbBuff=(intptr_t*)camera__decode_rgb( (uint8_t*)Camera.buffer[cam_buf.index].address, cam_buf.bytesused , fmt.fmt.pix.width, fmt.fmt.pix.height);
+				rgbBuff=(intptr_t*)camera__decode_rgb( 
+				(uint8_t*)self->buffer[ self->specs.cam_buf.index ].address, 
+				self->specs.cam_buf.bytesused , 
+				self->specs.fmt.fmt.pix.width, 
+				self->specs.fmt.fmt.pix.height);
 				break;
 		}
 		
 		//resend buffer to queue, so camera can fill it up again
-		if(-1 == xioctl(Camera.fd, VIDIOC_QBUF, &cam_buf))
-		{
-					perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
-					exit(errno);
+		if(-1 == xioctl(self->fd, VIDIOC_QBUF, &self->specs.cam_buf)){
+				
+				perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
+				exit(errno);
 		}
     return rgbBuff;
 }
 
-char *camera__imsave(const char* name){
+char *camera__imsave(CameraObject* self, const char* name){
 
-	char *filename=(char*)calloc(128,sizeof(char));
+	char* filename=calloc(129,sizeof(char));
 	
 	strcat(filename,"../images/");
-	write_time(filename, 0 );
+	//write_time(filename, 0 );
 	strcat(filename,name);
 	
-	switch(fmt.fmt.pix.pixelformat){
+	switch(self->specs.fmt.fmt.pix.pixelformat){
 	
 		case V4L2_PIX_FMT_MJPEG:
 		case V4L2_PIX_FMT_JPEG:
@@ -771,8 +782,6 @@ char *camera__imsave(const char* name){
 			break;
 	}
 	
-	
-	
 	int jpg_fd;
 	if(  ( jpg_fd= open(filename, O_WRONLY |O_TRUNC| O_CREAT, 0664) ) ==-1  ){
 		printf("%s->",filename);
@@ -783,14 +792,69 @@ char *camera__imsave(const char* name){
 	int recv=0;
 	//printf("expecting %i bytes to write\n",cam_buf.bytesused);
 	do{
-		recv+=write(jpg_fd, Camera.buffer[cam_buf.index].address, Camera.buffer[cam_buf.index].length);
+		recv+=write(jpg_fd, self->buffer[ self->specs.cam_buf.index ].address, 
+		self->buffer[ self->specs.cam_buf.index ].length);
 		//printf("recv:%i\n",recv);
-	}while( recv<cam_buf.bytesused) ;
+	}while( recv < self->specs.cam_buf.bytesused );
 
 	close(jpg_fd);
-	//printf("write file: %s\n",filename);
 	
 	return filename;
 	
 }
+CameraObject* camera__new(const char* path){
 
+	CameraObject* obj=(CameraObject*)calloc(1, sizeof(CameraObject));
+	
+	obj->name=calloc(257, sizeof(char));
+	
+	strcpy(obj->name, path);
+	
+	return obj;
+}
+
+void camera__destroy(CameraObject** self){
+	
+	if(self){
+		/*
+		set_streaming( (*self), VIDIOC_STREAMOFF );
+		camera__deactivate( (*self) );
+		*/
+		free( (*self)->buffer );//mmap which interacts with camera buffer
+		free((*self)->name);	//malloc'd buffer for camera path
+		free( (*self) );		//malloc'd main struct of object 
+		
+		*self=NULL;				//set to NULL to check later elsewhere
+		
+	}else
+		printf("already null. Do not call free()\n");
+		
+	printf("free:CameraObject destructed\n");
+}
+/*
+//Test
+int main(int argc, char **argv){
+
+	CameraObject* cam;
+	cam=camera__new("/dev/video0");
+	
+	printf("new camera object constructed: %s\n",cam->name);
+	
+	camera__activate(cam);
+	printf("camera object activated\n");
+	
+	//wait for camera to fill mmap
+	intptr_t* temp=camera__capture(cam,-1);//have to call capture before imsave, since capture dequeues buffer of device
+	free(temp);
+	
+	char* savepath=camera__imsave(cam,"test image");
+	printf("test image took from camera and saved to:%s\n",savepath);
+	free(savepath);
+	
+	camera__destroy(&cam);
+	
+	printf("Camera object destroyed\n");
+	
+	return 0;
+}
+*/
