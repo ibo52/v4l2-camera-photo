@@ -32,6 +32,8 @@ GtkWidget 		*info__buff_colorspace;
 GtkWidget		*info__device_path;
 GtkWidget		*info__caps_listBox;
 GtkWidget		*info__caps_extra_field;
+
+static CameraObject* CameraDevice;
 //---INFO PAGE WİDGETS---
 static void* add_capability_label(GtkBox* containerBox, const char* label_text, PangoAttrList* Attrs){
 	GtkWidget *temp;//label to append containerbox
@@ -117,7 +119,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		
 		//set capability hex label
 		char capability_[64];
-		sprintf(capability_,"Capabilities:\t\t\t\t\t%08x",caps.device_caps);
+		sprintf(capability_,"Capabilities:\t\t\t\t\t%08x",CameraDevice->specs.caps.device_caps);
 
 		GtkWidget* temp2=add_capability_label(containerBox, capability_, baseAttrs);
 		gtk_widget_set_halign (temp2, GTK_ALIGN_START);
@@ -125,7 +127,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		//delete variables from mem
 		pango_attr_list_unref(Attrs2);
 		
-		parse_caps(caps.device_caps, GTK_BOX(info__caps_listBox));
+		parse_caps(CameraDevice->specs.caps.device_caps, GTK_BOX(info__caps_listBox));
 	}
 	//delete variables from mem
 	pango_attr_list_unref(Attrs);
@@ -134,34 +136,34 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 }
 static void set_info_labels(void){
 	char temp[512]={'0'};
-	gtk_label_set_text(GTK_LABEL(info__device_path), Camera.name);
+	gtk_label_set_text(GTK_LABEL(info__device_path), CameraDevice->name);
 	
-	sprintf(temp, "%s", caps.driver);
+	sprintf(temp, "%s", CameraDevice->specs.caps.driver);
 	gtk_label_set_text(GTK_LABEL(info__driver_label), temp);
 	
-	sprintf(temp, "%s", caps.card);
+	sprintf(temp, "%s", CameraDevice->specs.caps.card);
 	gtk_label_set_text(GTK_LABEL(info__card_label), temp);
 	
-	sprintf(temp, "%s", caps.bus_info);
+	sprintf(temp, "%s", CameraDevice->specs.caps.bus_info);
 	gtk_label_set_text(GTK_LABEL(info__bus_label), temp);
 	
-	sprintf(temp, "%u.%u.%u",(caps.version>>16)&0xff, (caps.version>>8)&0xff, caps.version&0xff);
+	sprintf(temp, "%u.%u.%u",(CameraDevice->specs.caps.version>>16)&0xff, (CameraDevice->specs.caps.version>>8)&0xff, CameraDevice->specs.caps.version&0xff);
 	gtk_label_set_text(GTK_LABEL(info__version_label), temp);
 	
-	sprintf(temp, "%08x", caps.capabilities);
+	sprintf(temp, "%08x", CameraDevice->specs.caps.capabilities);
 	gtk_label_set_text(GTK_LABEL(info__caps_label), temp);
 	//------------------------------
-	sprintf(temp, "%d", fmt.fmt.pix.width);
+	sprintf(temp, "%d", CameraDevice->specs.fmt.fmt.pix.width);
 	gtk_label_set_text(GTK_LABEL(info__buff_width), temp);
 	
-	sprintf(temp, "%d", fmt.fmt.pix.height);
+	sprintf(temp, "%d", CameraDevice->specs.fmt.fmt.pix.height);
 	gtk_label_set_text(GTK_LABEL(info__buff_height), temp);
 	
-	sprintf(temp, "%c%c%c%c(%s)", fmt.fmt.pix.pixelformat&0xff,  (fmt.fmt.pix.pixelformat>>8)&0xff,  (fmt.fmt.pix.pixelformat>>16)&0xff,  (fmt.fmt.pix.pixelformat>>24)&0xff, fmt_desc.description);
+	sprintf(temp, "%c%c%c%c(%s)", CameraDevice->specs.fmt.fmt.pix.pixelformat&0xff,  (CameraDevice->specs.fmt.fmt.pix.pixelformat>>8)&0xff,  (CameraDevice->specs.fmt.fmt.pix.pixelformat>>16)&0xff,  (CameraDevice->specs.fmt.fmt.pix.pixelformat>>24)&0xff, CameraDevice->specs.fmt_desc.description);
 	gtk_label_set_text(GTK_LABEL(info__buff_format), temp);
 	
 	//append colorspace string
-	switch(fmt.fmt.pix.colorspace){
+	switch(CameraDevice->specs.fmt.fmt.pix.colorspace){
 	
 			case V4L2_COLORSPACE_SRGB:{
 				sprintf(temp, "sRGB");
@@ -176,7 +178,7 @@ static void set_info_labels(void){
 				break;
 			}
 			default:{
-				sprintf(temp, "%u",fmt.fmt.pix.colorspace);
+				sprintf(temp, "%u",CameraDevice->specs.fmt.fmt.pix.colorspace);
 				break;
 			}	
 	}
@@ -202,8 +204,8 @@ int halocam__info_labels__set(void){
 	*
 	*/
 	set_info_labels();
-	
-	parse_caps(caps.capabilities, GTK_BOX(info__caps_listBox));
+
+	parse_caps(CameraDevice->specs.caps.capabilities, GTK_BOX(info__caps_listBox));
 
 	return 0;
 }
@@ -220,7 +222,7 @@ int halocam__info_labels__reset(gboolean semi_reset){
 			gtk_widget_destroy( GTK_WIDGET(iter->data) );
 		
 		g_list_free(children);
-		parse_caps(caps.capabilities, GTK_BOX(info__caps_listBox));
+		parse_caps(CameraDevice->specs.caps.capabilities, GTK_BOX(info__caps_listBox));
 		
 		}
 	
@@ -256,7 +258,7 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 	g_mutex_lock (&camera_access_mutex);
 	
 	if (imageBox!=NULL || imageBoxLayout!=NULL){
-		uint8_t* buffer=(uint8_t* )camera__capture(V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
+		uint8_t* buffer=(uint8_t* )camera__capture(CameraDevice, V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
 
 		if ( !buffer ){
 			drawText(cr, "Buffer is Empty", 1);
@@ -268,9 +270,9 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 				  GDK_COLORSPACE_RGB,
 				  0,
 				  8,//int bits_per_sample=
-				  fmt.fmt.pix.width,
-				  fmt.fmt.pix.height,
-				  fmt.fmt.pix.width*3,
+				  CameraDevice->specs.fmt.fmt.pix.width,
+				  CameraDevice->specs.fmt.fmt.pix.height,
+				  CameraDevice->specs.fmt.fmt.pix.width*3,
 				  NULL,//GdkPixbufDestroyNotify destroy_fn=
 				  NULL//gpointer destroy_fn_data
 			);
@@ -307,7 +309,7 @@ gboolean captureImage(gpointer data){
 	g_mutex_lock (&camera_access_mutex);
 	
 	char *text=data;
-	text=camera__imsave(text);//get saved image name
+	text=camera__imsave(CameraDevice, text);//get saved image name
 	
 	gallery__load_image(galleryFlowBox, text, 176, 176, 1);//adds image to galleryFlowBox
 	
@@ -334,7 +336,7 @@ void ShowPreferencesWindowButton_activate_cb(GtkMenuItem *item){
 }
 gpointer app_close(gpointer GtkApp);
 void app_activate (GApplication *app, gpointer user_data) {
-	
+	CameraDevice=user_data;
 	//gtk_init(&argc, &argv);//init gtk
 	
 	builder=gtk_builder_new_from_file("../resources/view/halocam.glade");
