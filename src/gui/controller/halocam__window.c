@@ -332,7 +332,7 @@ void ShowAboutWindowButton_activate_cb(GtkMenuItem *item){
 	aboutDialog__open_display_window();
 }
 void ShowPreferencesWindowButton_activate_cb(GtkMenuItem *item){
-	cameraSettingsDialog__open_display_window();
+	cameraSettingsDialog__open_display_window(CameraDevice);
 }
 gpointer app_close(gpointer GtkApp);
 void app_activate (GApplication *app, gpointer user_data) {
