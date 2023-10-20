@@ -9,31 +9,34 @@
 #include "camera_settings-dialog.h"
 #include "halocam__window.h"
 
-//---CAMERA PAGE WİDGETS---
-GtkWidget 		*window;
-GtkWidget 		*rootLayout;	//MAİN LAYOUT OF WİNDOW
-GtkWidget 		*captureButton;
-GtkWidget 		*imageBoxLayout;
-GtkWidget 		*imageBox;
-GtkBuilder		*builder;
-GtkWidget		*galleryFlowBox;
+typedef struct __halocam_view{
+	GtkWidget 		*window;
+	GtkWidget 		*rootLayout;	//MAIN LAYOUT OF WİNDOW
+	GtkWidget 		*captureButton;
+	GtkWidget 		*imageBoxLayout;
+	GtkWidget 		*imageBox;
+	GtkWidget		*galleryFlowBox;
 
-//---INFO PAGE WİDGETS---
-GtkWidget 		*info__driver_label;
-GtkWidget 		*info__card_label;
-GtkWidget 		*info__bus_label;
-GtkWidget 		*info__version_label;
-GtkWidget 		*info__caps_label;
+	//---INFO PAGE WİDGETS---
+	GtkWidget 		*info__driver_label;
+	GtkWidget 		*info__card_label;
+	GtkWidget 		*info__bus_label;
+	GtkWidget 		*info__version_label;
+	GtkWidget 		*info__caps_label;
 
-GtkWidget 		*info__buff_width;
-GtkWidget 		*info__buff_height;
-GtkWidget 		*info__buff_format;
-GtkWidget 		*info__buff_colorspace;
-GtkWidget		*info__device_path;
-GtkWidget		*info__caps_listBox;
-GtkWidget		*info__caps_extra_field;
+	GtkWidget 		*info__buff_width;
+	GtkWidget 		*info__buff_height;
+	GtkWidget 		*info__buff_format;
+	GtkWidget 		*info__buff_colorspace;
+	GtkWidget		*info__device_path;
+	GtkWidget		*info__caps_listBox;
+	GtkWidget		*info__caps_extra_field;
+}View;
 
-static CameraObject* CameraDevice;
+static GtkBuilder	*builder;
+static CameraObject *CameraDevice;//pointer of global defined camera
+static View 		halocam;	  //View of main window
+
 //---INFO PAGE WİDGETS---
 static void* add_capability_label(GtkBox* containerBox, const char* label_text, PangoAttrList* Attrs){
 	GtkWidget *temp;//label to append containerbox
@@ -127,7 +130,7 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 		//delete variables from mem
 		pango_attr_list_unref(Attrs2);
 		
-		parse_caps(CameraDevice->specs.caps.device_caps, GTK_BOX(info__caps_listBox));
+		parse_caps(CameraDevice->specs.caps.device_caps, GTK_BOX(halocam.info__caps_listBox));
 	}
 	//delete variables from mem
 	pango_attr_list_unref(Attrs);
@@ -136,31 +139,31 @@ static void parse_caps(uint32_t cap, GtkBox* containerBox){
 }
 static void set_info_labels(void){
 	char temp[512]={'0'};
-	gtk_label_set_text(GTK_LABEL(info__device_path), CameraDevice->name);
+	gtk_label_set_text(GTK_LABEL(halocam.info__device_path), CameraDevice->name);
 	
 	sprintf(temp, "%s", CameraDevice->specs.caps.driver);
-	gtk_label_set_text(GTK_LABEL(info__driver_label), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__driver_label), temp);
 	
 	sprintf(temp, "%s", CameraDevice->specs.caps.card);
-	gtk_label_set_text(GTK_LABEL(info__card_label), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__card_label), temp);
 	
 	sprintf(temp, "%s", CameraDevice->specs.caps.bus_info);
-	gtk_label_set_text(GTK_LABEL(info__bus_label), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__bus_label), temp);
 	
 	sprintf(temp, "%u.%u.%u",(CameraDevice->specs.caps.version>>16)&0xff, (CameraDevice->specs.caps.version>>8)&0xff, CameraDevice->specs.caps.version&0xff);
-	gtk_label_set_text(GTK_LABEL(info__version_label), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__version_label), temp);
 	
 	sprintf(temp, "%08x", CameraDevice->specs.caps.capabilities);
-	gtk_label_set_text(GTK_LABEL(info__caps_label), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__caps_label), temp);
 	//------------------------------
 	sprintf(temp, "%d", CameraDevice->specs.fmt.fmt.pix.width);
-	gtk_label_set_text(GTK_LABEL(info__buff_width), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__buff_width), temp);
 	
 	sprintf(temp, "%d", CameraDevice->specs.fmt.fmt.pix.height);
-	gtk_label_set_text(GTK_LABEL(info__buff_height), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__buff_height), temp);
 	
 	sprintf(temp, "%c%c%c%c(%s)", CameraDevice->specs.fmt.fmt.pix.pixelformat&0xff,  (CameraDevice->specs.fmt.fmt.pix.pixelformat>>8)&0xff,  (CameraDevice->specs.fmt.fmt.pix.pixelformat>>16)&0xff,  (CameraDevice->specs.fmt.fmt.pix.pixelformat>>24)&0xff, CameraDevice->specs.fmt_desc.description);
-	gtk_label_set_text(GTK_LABEL(info__buff_format), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__buff_format), temp);
 	
 	//append colorspace string
 	switch(CameraDevice->specs.fmt.fmt.pix.colorspace){
@@ -182,30 +185,30 @@ static void set_info_labels(void){
 				break;
 			}	
 	}
-	gtk_label_set_text(GTK_LABEL(info__buff_colorspace), temp);
+	gtk_label_set_text(GTK_LABEL(halocam.info__buff_colorspace), temp);
 }
 int halocam__info_labels__set(void){
 
-	info__driver_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__driver_label"));
-	info__card_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__card_label"));
-	info__bus_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__bus_label"));
-	info__version_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__version_label"));
-	info__caps_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_label"));
-	info__device_path=GTK_WIDGET(gtk_builder_get_object(builder,"info__device_path"));
+	halocam.info__driver_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__driver_label"));
+	halocam.info__card_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__card_label"));
+	halocam.info__bus_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__bus_label"));
+	halocam.info__version_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__version_label"));
+	halocam.info__caps_label=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_label"));
+	halocam.info__device_path=GTK_WIDGET(gtk_builder_get_object(builder,"info__device_path"));
 	
-	info__buff_width=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_width"));
-	info__buff_height=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_height"));
-	info__buff_format=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_format"));
-	info__buff_colorspace=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_colorspace"));
+	halocam.info__buff_width=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_width"));
+	halocam.info__buff_height=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_height"));
+	halocam.info__buff_format=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_format"));
+	halocam.info__buff_colorspace=GTK_WIDGET(gtk_builder_get_object(builder,"info__buff_colorspace"));
 	
-	info__caps_listBox=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_listBox"));
-	info__caps_extra_field=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_extra_field"));
+	halocam.info__caps_listBox=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_listBox"));
+	halocam.info__caps_extra_field=GTK_WIDGET(gtk_builder_get_object(builder,"info__caps_extra_field"));
 	/*
 	*
 	*/
 	set_info_labels();
 
-	parse_caps(CameraDevice->specs.caps.capabilities, GTK_BOX(info__caps_listBox));
+	parse_caps(CameraDevice->specs.caps.capabilities, GTK_BOX(halocam.info__caps_listBox));
 
 	return 0;
 }
@@ -216,13 +219,13 @@ int halocam__info_labels__reset(gboolean semi_reset){
 	if( !semi_reset ){
 		GList *children, *iter;//remove all children from container
 		
-		children=gtk_container_get_children( GTK_CONTAINER(info__caps_listBox) );
+		children=gtk_container_get_children( GTK_CONTAINER(halocam.info__caps_listBox) );
 		
 		for(iter=children; iter!=NULL; iter=g_list_next(iter) )
 			gtk_widget_destroy( GTK_WIDGET(iter->data) );
 		
 		g_list_free(children);
-		parse_caps(CameraDevice->specs.caps.capabilities, GTK_BOX(info__caps_listBox));
+		parse_caps(CameraDevice->specs.caps.capabilities, GTK_BOX(halocam.info__caps_listBox));
 		
 		}
 	
@@ -257,7 +260,7 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 
 	g_mutex_lock (&camera_access_mutex);
 	
-	if (imageBox!=NULL || imageBoxLayout!=NULL){
+	if (halocam.imageBox!=NULL || halocam.imageBoxLayout!=NULL){
 		uint8_t* buffer=(uint8_t* )camera__capture(CameraDevice, V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
 
 		if ( !buffer ){
@@ -280,8 +283,8 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 			//2. scale gdkpixbuff iamge struct .ERROR-->Leads buffer overflow. Could not manage the struct
 			GdkPixbuf* pixbuff_scaled=gdk_pixbuf_scale_simple (
 				  pixbuff,
-				  gtk_widget_get_allocated_width(imageBox),
-				  gtk_widget_get_allocated_height(imageBox),
+				  gtk_widget_get_allocated_width(halocam.imageBox),
+				  gtk_widget_get_allocated_height(halocam.imageBox),
 				  GDK_INTERP_BILINEAR
 			);
 
@@ -294,7 +297,7 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 			g_object_unref( pixbuff_scaled );  //free pixbuff memory
 			free(buffer);						   //free buffer
 			
-			gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(imageBoxLayout),gtk_widget_get_allocated_height(imageBoxLayout));//send draw signal
+			gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(halocam.imageBoxLayout),gtk_widget_get_allocated_height(halocam.imageBoxLayout));//send draw signal
 			
 
 			}
@@ -311,7 +314,7 @@ gboolean captureImage(gpointer data){
 	char *text=data;
 	text=camera__imsave(CameraDevice, text);//get saved image name
 	
-	gallery__load_image(galleryFlowBox, text, 176, 176, 1);//adds image to galleryFlowBox
+	gallery__load_image(halocam.galleryFlowBox, text, 176, 176, 1);//adds image to galleryFlowBox
 	
 	g_mutex_unlock (&camera_access_mutex);
 	
@@ -335,28 +338,30 @@ void ShowPreferencesWindowButton_activate_cb(GtkMenuItem *item){
 	cameraSettingsDialog__open_display_window(CameraDevice);
 }
 gpointer app_close(gpointer GtkApp);
+
 void app_activate (GApplication *app, gpointer user_data) {
+	
 	CameraDevice=user_data;
 	//gtk_init(&argc, &argv);//init gtk
 	
 	builder=gtk_builder_new_from_file("../resources/view/halocam.glade");
 	
-	window=GTK_WIDGET(gtk_builder_get_object(builder,"window"));
-	rootLayout=GTK_WIDGET(gtk_builder_get_object(builder,"rootLayout"));
-	imageBoxLayout=GTK_WIDGET(gtk_builder_get_object(builder,"imageBoxLayout"));
-	imageBox=GTK_WIDGET(gtk_builder_get_object(builder,"imageBox"));
-	captureButton=GTK_WIDGET(gtk_builder_get_object(builder,"captureButton"));
+	halocam.window=GTK_WIDGET(gtk_builder_get_object(builder,"window"));
+	halocam.rootLayout=GTK_WIDGET(gtk_builder_get_object(builder,"rootLayout"));
+	halocam.imageBoxLayout=GTK_WIDGET(gtk_builder_get_object(builder,"imageBoxLayout"));
+	halocam.imageBox=GTK_WIDGET(gtk_builder_get_object(builder,"imageBox"));
+	halocam.captureButton=GTK_WIDGET(gtk_builder_get_object(builder,"captureButton"));
 
 	halocam__info_labels__set();//set labels for info page
 	
-	galleryFlowBox=GTK_WIDGET(gtk_builder_get_object(builder,"galleryFlowBox"));
+	halocam.galleryFlowBox=GTK_WIDGET(gtk_builder_get_object(builder,"galleryFlowBox"));
 	//g_signal_connect(window,"destroy",G_CALLBACK(g_application_quit),NULL);
-	g_signal_connect(imageBox,"draw",G_CALLBACK(updateImage),NULL);
+	g_signal_connect(halocam.imageBox,"draw",G_CALLBACK(updateImage),NULL);
 	gtk_builder_connect_signals(builder,NULL);
 	//---
-	gallery__load_all_images(galleryFlowBox, "../images/");
-	gtk_window_set_application (GTK_WINDOW (window), GTK_APPLICATION (app));
+	gallery__load_all_images(halocam.galleryFlowBox, "../images/");
+	gtk_window_set_application (GTK_WINDOW (halocam.window), GTK_APPLICATION (app));
 	g_object_unref(builder);
 	//---
-	gtk_widget_show(window);
+	gtk_widget_show(halocam.window);
 }

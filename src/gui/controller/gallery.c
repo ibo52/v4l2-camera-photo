@@ -7,15 +7,20 @@
 #include "normalize.h"	//convolve definitions
 #include "pad.h"		//convolve definitions
 
-GtkBuilder		*gallery__builder;
-GtkWidget		*gallery__display_window;
-GtkWidget 		*gallery__display_image;
-GtkWidget 		*gallery__laplaceButton;
-GtkWidget 		*gallery__gaussBlurButton;
-GtkWidget 		*gallery__inverseButton;
-GtkWidget 		*gallery__binaryButton;
-GtkWidget 		*gallery__grayscaleButton;
-GtkWidget 		*gallery__padButton;
+typedef struct __gallery{
+	GtkWidget		*window;
+	GtkWidget 		*display_image;
+	GtkWidget 		*laplaceButton;
+	GtkWidget 		*gaussBlurButton;
+	GtkWidget 		*inverseButton;
+	GtkWidget 		*binaryButton;
+	GtkWidget 		*grayscaleButton;
+	GtkWidget 		*padButton;
+}View;
+
+static View 		gallery;
+static GtkBuilder	*builder;
+
 
 void gallery__binaryButtonClicked(GtkButton *b);
 int gallery__open_display_window( const char* file_path);
@@ -72,21 +77,21 @@ void gallery__load_all_images(GtkWidget *galleryFlowBox, const char *path){
 
 int gallery__open_display_window( const char* file_path){
 
-	if (gallery__display_window!=NULL) {
+	if (gallery.window!=NULL) {
 
-		gtk_window_close (GTK_WINDOW(gallery__display_window));
+		gtk_window_close (GTK_WINDOW(gallery.window));
 	}
 		
-		gallery__builder=gtk_builder_new_from_file("../resources/view/gallery.glade");
+		builder=gtk_builder_new_from_file("../resources/view/gallery.glade");
 	
-		gallery__display_window=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"gallery__display_window"));	
-		gallery__laplaceButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"laplaceButton"));	
-		gallery__gaussBlurButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"gaussBlurButton"));	
-		gallery__inverseButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"inverseButton"));	
-		gallery__binaryButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"binaryButton"));	
-		gallery__grayscaleButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"grayscaleButton"));	
-		gallery__display_image=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"gallery__display_image"));	
-		gallery__padButton=GTK_WIDGET(gtk_builder_get_object(gallery__builder,"padButton"));
+		gallery.window=GTK_WIDGET(gtk_builder_get_object(builder,"gallery__display_window"));	
+		gallery.laplaceButton=GTK_WIDGET(gtk_builder_get_object(builder,"laplaceButton"));	
+		gallery.gaussBlurButton=GTK_WIDGET(gtk_builder_get_object(builder,"gaussBlurButton"));	
+		gallery.inverseButton=GTK_WIDGET(gtk_builder_get_object(builder,"inverseButton"));	
+		gallery.binaryButton=GTK_WIDGET(gtk_builder_get_object(builder,"binaryButton"));	
+		gallery.grayscaleButton=GTK_WIDGET(gtk_builder_get_object(builder,"grayscaleButton"));	
+		gallery.display_image=GTK_WIDGET(gtk_builder_get_object(builder,"gallery__display_image"));	
+		gallery.padButton=GTK_WIDGET(gtk_builder_get_object(builder,"padButton"));
 
 		GdkPixbuf* imgBuff=gdk_pixbuf_new_from_file_at_scale(
 		file_path,
@@ -94,18 +99,18 @@ int gallery__open_display_window( const char* file_path){
 			450,
 			1,		//preservfe aspect ratio
 			NULL);
-		gtk_image_set_from_pixbuf(GTK_IMAGE(gallery__display_image), imgBuff);
+		gtk_image_set_from_pixbuf(GTK_IMAGE(gallery.display_image), imgBuff);
 		
-		g_signal_connect(gallery__display_window,"destroy",G_CALLBACK(gtk_window_close),NULL);
-		g_signal_connect(gallery__binaryButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
-		g_signal_connect(gallery__inverseButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
-		g_signal_connect(gallery__grayscaleButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
-		g_signal_connect(gallery__gaussBlurButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
-		g_signal_connect(gallery__laplaceButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
-		g_signal_connect(gallery__padButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery.window,"destroy",G_CALLBACK(gtk_window_close),NULL);
+		g_signal_connect(gallery.binaryButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery.inverseButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery.grayscaleButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery.gaussBlurButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery.laplaceButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
+		g_signal_connect(gallery.padButton,"clicked",G_CALLBACK(gallery__binaryButtonClicked),NULL);
 		//gtk_box_set_center_widget ( GTK_BOX(box), display_image );
 	
-		gtk_widget_show_all (gallery__display_window);
+		gtk_widget_show_all (gallery.window);
 		
 	return 0;
 }
@@ -114,7 +119,7 @@ void gallery__binaryButtonClicked(GtkButton *b){
 	//g_app_info_launch_default_for_uri("file:///",NULL,NULL);//open system-default image viewer
 	const char *button_name=gtk_button_get_label(b);
 	
-	GdkPixbuf* imgBuff=gtk_image_get_pixbuf ( GTK_IMAGE(gallery__display_image) );
+	GdkPixbuf* imgBuff=gtk_image_get_pixbuf ( GTK_IMAGE(gallery.display_image) );
 	int new_width=gdk_pixbuf_get_width(imgBuff), new_height=gdk_pixbuf_get_height(imgBuff);
 	
 	guchar* buff=gdk_pixbuf_get_pixels(imgBuff);
@@ -166,5 +171,5 @@ void gallery__binaryButtonClicked(GtkButton *b){
 		  NULL,NULL
 	);
 	
-	gtk_image_set_from_pixbuf(GTK_IMAGE(gallery__display_image), newpix);
+	gtk_image_set_from_pixbuf(GTK_IMAGE(gallery.display_image), newpix);
 }

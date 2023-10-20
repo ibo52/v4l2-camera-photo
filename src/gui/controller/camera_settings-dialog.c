@@ -5,12 +5,15 @@
 #include "halocam__window.h"
 #include <string.h>
 
-GtkBuilder		*cameraSettingsDialog__builder;
-GtkWidget		*cameraSettingsDialog__display_window;
-GtkWidget		*rootBox;
-GtkWidget		*format_ResolutionComboBox;
-GtkWidget		*format_deviceListComboBox;
+typedef struct __cameraSettingsDialog{
+	GtkWidget		*window;
+	GtkWidget		*rootBox;
+	GtkWidget		*format_ResolutionComboBox;
+	GtkWidget		*format_deviceListComboBox;
+}View;
 
+static View 		cameraSettingsDialog;
+static GtkBuilder	*builder;
 static CameraObject* CameraDevice;
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
@@ -84,16 +87,16 @@ static void cameraSettingsDialog__append_formatControls(void){
 		
 		sprintf(tempString, "%ix%i", CameraDevice->specs.frame_size.discrete.width, CameraDevice->specs.frame_size.discrete.height);
 		sprintf(tempId, "%i", index);
-		gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(format_ResolutionComboBox), tempId, tempString);
+		gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(cameraSettingsDialog.format_ResolutionComboBox), tempId, tempString);
 		index++;
 	}
-	gtk_combo_box_set_active(GTK_COMBO_BOX(format_ResolutionComboBox), 0);
-	g_signal_connect(format_ResolutionComboBox, "changed", G_CALLBACK(formatCtrl_comboBox_value_changed_cb), NULL);
+	gtk_combo_box_set_active(GTK_COMBO_BOX(cameraSettingsDialog.format_ResolutionComboBox), 0);
+	g_signal_connect(cameraSettingsDialog.format_ResolutionComboBox, "changed", G_CALLBACK(formatCtrl_comboBox_value_changed_cb), NULL);
 }
 
 static void cameraSettingsDialog__reset_formatControls(void){
 
-	gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(format_ResolutionComboBox));
+	gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(cameraSettingsDialog.format_ResolutionComboBox));
 	cameraSettingsDialog__append_formatControls();
 }
 static void cameraSettingsDialog__append_deviceListControls(void){
@@ -109,11 +112,11 @@ static void cameraSettingsDialog__append_deviceListControls(void){
 			strcpy(deviceX, "/dev/");
 			strcat(deviceX, file);
 			
-			gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(format_deviceListComboBox), deviceX, deviceX);
+			gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(cameraSettingsDialog.format_deviceListComboBox), deviceX, deviceX);
 		}
 	}
-	gtk_combo_box_set_active_id(GTK_COMBO_BOX(format_deviceListComboBox), CameraDevice->name);
-	g_signal_connect(format_deviceListComboBox, "changed", G_CALLBACK(format_deviceListcomboBox_value_changed_cb), NULL);
+	gtk_combo_box_set_active_id(GTK_COMBO_BOX(cameraSettingsDialog.format_deviceListComboBox), CameraDevice->name);
+	g_signal_connect(cameraSettingsDialog.format_deviceListComboBox, "changed", G_CALLBACK(format_deviceListcomboBox_value_changed_cb), NULL);
 	g_dir_close(Dir);
 }
 
@@ -159,7 +162,7 @@ static void cameraSettingsDialog__append_cameraControls(void){
 				gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
 				
 				gtk_box_pack_start(GTK_BOX(box), label, 1,1,5);
-				gtk_box_pack_start(GTK_BOX(rootBox), box, 1,1,5);
+				gtk_box_pack_start(GTK_BOX(cameraSettingsDialog.rootBox), box, 1,1,5);
 				gtk_widget_show(label);	
 				gtk_widget_show(box);
 				continue;
@@ -206,7 +209,7 @@ static void cameraSettingsDialog__append_cameraControls(void){
 			//pack and show widgets
 			gtk_box_pack_start(GTK_BOX(box), label, 1,1,0);
 			gtk_box_pack_start(GTK_BOX(box), slider, 1,1,0);
-			gtk_box_pack_start(GTK_BOX(rootBox), box, 1,1,5);
+			gtk_box_pack_start(GTK_BOX(cameraSettingsDialog.rootBox), box, 1,1,5);
 			
 			gtk_widget_show(label);
 			gtk_widget_show(slider);
@@ -225,25 +228,25 @@ static void cameraSettingsDialog__append_cameraControls(void){
 int cameraSettingsDialog__open_display_window(CameraObject* Camera){
 	CameraDevice=Camera;
 	
-	if (cameraSettingsDialog__display_window!=NULL) {
+	if (cameraSettingsDialog.window!=NULL) {
 
-		gtk_window_close (GTK_WINDOW(cameraSettingsDialog__display_window));
+		gtk_window_close (GTK_WINDOW(cameraSettingsDialog.window));
 	}
 		
-		cameraSettingsDialog__builder=gtk_builder_new_from_file("../resources/view/camera_settings.glade");
+		builder=gtk_builder_new_from_file("../resources/view/camera_settings.glade");
 	
-		cameraSettingsDialog__display_window=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"cameraSettingsDialog"));	
-		rootBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"rootBox"));	
-		format_ResolutionComboBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"format_ResolutionComboBox"));
-		format_deviceListComboBox=GTK_WIDGET(gtk_builder_get_object(cameraSettingsDialog__builder,"format_deviceListComboBox"));
+		cameraSettingsDialog.window=GTK_WIDGET(gtk_builder_get_object(builder,"cameraSettingsDialog"));	
+		cameraSettingsDialog.rootBox=GTK_WIDGET(gtk_builder_get_object(builder,"rootBox"));	
+		cameraSettingsDialog.format_ResolutionComboBox=GTK_WIDGET(gtk_builder_get_object(builder,"format_ResolutionComboBox"));
+		cameraSettingsDialog.format_deviceListComboBox=GTK_WIDGET(gtk_builder_get_object(builder,"format_deviceListComboBox"));
 		
 		cameraSettingsDialog__append_cameraControls();
 		cameraSettingsDialog__append_deviceListControls();
 		cameraSettingsDialog__append_formatControls();
 		
-		g_signal_connect(cameraSettingsDialog__display_window,"destroy",G_CALLBACK(gtk_window_close),NULL);
+		g_signal_connect(cameraSettingsDialog.window,"destroy",G_CALLBACK(gtk_window_close),NULL);
 		
-		gtk_widget_show_all (cameraSettingsDialog__display_window);
+		gtk_widget_show_all (cameraSettingsDialog.window);
 		
 	return 0;
 }

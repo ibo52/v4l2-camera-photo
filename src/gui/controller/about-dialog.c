@@ -1,23 +1,28 @@
 #include<gtk/gtk.h>
 #include<stdint.h>
 
-GtkBuilder		*aboutDialog__builder;
-GtkWidget		*aboutDialog__display_window;
+typedef struct __about_dialog{
+	GtkWidget		*window;
+}View;
 
-int aboutDialog__open_display_window(){
+static View 		aboutDialog;
+static GtkBuilder	*builder;
 
-	if (aboutDialog__display_window!=NULL) {
+/*static function that opens window about application*/
+int aboutDialog__open_display_window(void){
 
-		gtk_window_close (GTK_WINDOW(aboutDialog__display_window));
+	if (aboutDialog.window!=NULL) {
+
+		gtk_window_close (GTK_WINDOW(aboutDialog.window));
 	}
 		
-		aboutDialog__builder=gtk_builder_new_from_file("../resources/view/about-dialog.glade");
+		builder=gtk_builder_new_from_file("../resources/view/about-dialog.glade");
 	
-		aboutDialog__display_window=GTK_WIDGET(gtk_builder_get_object(aboutDialog__builder,"window__aboutDialog"));	
+		aboutDialog.window=GTK_WIDGET(gtk_builder_get_object(builder,"window__aboutDialog"));	
 		
-		g_signal_connect(aboutDialog__display_window,"destroy",G_CALLBACK(gtk_window_close),NULL);
+		g_signal_connect(aboutDialog.window,"destroy",G_CALLBACK(gtk_window_close),NULL);
 	
-		gtk_widget_show_all (aboutDialog__display_window);
+		gtk_widget_show_all (aboutDialog.window);
 		
 	return 0;
 }

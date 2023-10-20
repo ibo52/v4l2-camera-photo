@@ -5,11 +5,11 @@
 #include "cam.h"
 #include "halocam__window.h"
 
-CameraObject* CameraDevice;
+CameraObject* CameraDevice;		//global defined object, accessible by all
 
 gpointer app_shutdown_cb(){
 
-	camera__destroy(&CameraDevice);
+	camera__destroy(&CameraDevice);	//free the object
 
 	return 0;
 }
