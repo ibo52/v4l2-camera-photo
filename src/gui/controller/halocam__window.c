@@ -261,15 +261,15 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 	g_mutex_lock (&camera_access_mutex);
 	
 	if (halocam.imageBox!=NULL || halocam.imageBoxLayout!=NULL){
-		uint8_t* buffer=(uint8_t* )camera__capture(CameraDevice, V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
+		__buff* bufferStruct = camera__capture(CameraDevice, V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
 
-		if ( !buffer ){
+		if ( !bufferStruct ){
 			drawText(cr, "Buffer is Empty", 1);
 
 		}else{
 			//1. move data to gdkpixbuff struct
 			GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
-				  (uint8_t*)buffer,
+				  (uint8_t*)bufferStruct->address,
 				  GDK_COLORSPACE_RGB,
 				  0,
 				  8,//int bits_per_sample=
@@ -295,7 +295,9 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 			
 			//last step
 			g_object_unref( pixbuff_scaled );  //free pixbuff memory
-			free(buffer);						   //free buffer
+			
+			free(bufferStruct->address);
+			free(bufferStruct);						   //free buffer
 			
 			gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(halocam.imageBoxLayout),gtk_widget_get_allocated_height(halocam.imageBoxLayout));//send draw signal
 			

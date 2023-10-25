@@ -15,11 +15,11 @@ typedef struct conv2dThreadArguments{
 	float* kernel;		//pointer to kernel for convole ops
 	int ksize;			//size of kernel
 }conv2dThreadArguments;
-conv2dThreadArguments GLOBAL_CONV2D_ARGS;
+static conv2dThreadArguments GLOBAL_CONV2D_ARGS;
 
 
 //private interface for threading conv2d
-void* conv2dThread(void *offset){
+static void* conv2dThread(void *offset){
 
 	//---GET THE ARGUMENTS------
 	conv2dThreadArguments *arguments=&GLOBAL_CONV2D_ARGS;
@@ -105,7 +105,7 @@ float* conv2d(uint8_t *buffer,int width,int height,float* kernel,int ksize){
 	int new_h=height-ksize+1;
 	float *apply=calloc(new_w*new_h*3 ,sizeof(float));
 	//write info to global variable
-	conv2dThreadArguments argument={buffer, apply, width, height, kernel, ksize};
+	conv2dThreadArguments argument={buffer, apply, width, height, kernel, ksize}; //same for all threads
 	GLOBAL_CONV2D_ARGS=argument;
 	
 	for(i=0; i<NUM_PROCESSORS; i++){

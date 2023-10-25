@@ -138,26 +138,40 @@ void gallery__binaryButtonClicked(GtkButton *b){
 		float fsigma=1;
 		int padsize=(fsize-1)/2;
 
-		buff=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
-		buff=gaussBlur(buff, gdk_pixbuf_get_width(imgBuff)+padsize*2, gdk_pixbuf_get_height(imgBuff)+padsize*2, fsize,fsigma);
+		uint8_t* padded=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
+		
+		uint8_t* blured=gaussBlur(padded, gdk_pixbuf_get_width(imgBuff)+padsize*2, gdk_pixbuf_get_height(imgBuff)+padsize*2, fsize,fsigma);
+		
+		free(buff);
+		free(padded);
+		buff=blured;
 	}
 	else if(strcmp(button_name,"laplace")==0){
 		int fsize=3;
 		int padsize=(fsize-1)/2;
 		
-		buff=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
-		float *lapl=laplacian(buff, gdk_pixbuf_get_width(imgBuff)+padsize*2, gdk_pixbuf_get_height(imgBuff)+padsize*2);
+		uint8_t* padded=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
 		
-		buff=normalize(lapl, gdk_pixbuf_get_width(imgBuff), gdk_pixbuf_get_height(imgBuff));
+		float *lapl=laplacian(padded, gdk_pixbuf_get_width(imgBuff)+padsize*2, gdk_pixbuf_get_height(imgBuff)+padsize*2);
+		
+		uint8_t* normalized=normalize(lapl, gdk_pixbuf_get_width(imgBuff), gdk_pixbuf_get_height(imgBuff));
+		
+		free(buff);
+		free(padded);
+		free(lapl);
+		buff=normalized;
 	}
 	else if(strcmp(button_name,"zero pad")==0){
 		int fsize=3;
 		int padsize=(fsize-1)/2;
 		
-		buff=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
+		uint8_t* padded=pad(buff, gdk_pixbuf_get_width(imgBuff),gdk_pixbuf_get_height(imgBuff), padsize,padsize,padsize,padsize);
 		
 		new_width+=2*padsize;
 		new_height+=2*padsize;
+		
+		free(buff);
+		buff=padded;
 	}
 	
 	GdkPixbuf *newpix=gdk_pixbuf_new_from_data (

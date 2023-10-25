@@ -4,7 +4,7 @@
 #include <linux/videodev2.h>	
 
 typedef struct __buff{
-	intptr_t* address;
+	int8_t* address;
 	size_t length;
 }__buff;
 
@@ -46,7 +46,7 @@ void camera__control__enumerate_menu(CameraObject* self);				//(if exist)get men
 void camera__control__set(CameraObject* self, int ctrl_id, int val);	//set control 'ctrl_id' to desired 'int val'
 
 //uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height);//convert camera buffer to RGB and apply filters
-intptr_t* camera__capture(CameraObject* self, int buffer_type);			//convert camera buffer to 'buffer_type' and return
+__buff* camera__capture(CameraObject* self, int buffer_type);			//convert camera buffer to 'buffer_type' and return
 char*	 camera__imsave(CameraObject* self, const char* filename);		//dumps buffer data to file
 
 int get_format(CameraObject* self, int fmt_description_index);			//get supported camera formats to 'struct fmt_desc' one by one

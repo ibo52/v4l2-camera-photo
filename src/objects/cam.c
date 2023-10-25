@@ -41,7 +41,7 @@
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
 typedef struct __buff{
-	intptr_t* address;
+	int8_t* address;
 	size_t length;
 }__buff;
 
@@ -655,7 +655,7 @@ void jpegErrorExit (j_common_ptr cinfo){
   
 }
 
-static uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
+static int8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,int height) {
 	/*Decode JPEG data of camera to RAW RGB*/
 	int rc;
 	
@@ -677,7 +677,7 @@ static uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,
         
         processed_buffer=NULL;
         errno=EAGAIN;
-        return processed_buffer;
+        return (int8_t*)processed_buffer;
     }
 	
 	jpeg_create_decompress(&cinfo);
@@ -713,49 +713,54 @@ static uint8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,
 
 	jpeg_destroy_decompress(&cinfo);
 
-	return processed_buffer;
+	return (int8_t*)processed_buffer;
 	
 }
-intptr_t* camera__capture(CameraObject* self, int buffer_type){
+__buff* camera__capture(CameraObject* self, int buffer_type){
 	
-	intptr_t* rgbBuff;
+	__buff* DataHolder;
 	if( dequeue_buff(self) ){//io to dequeue buffer. Queueing made here(end of this function) after image processed
-		rgbBuff=NULL;
-		return rgbBuff;
+		return NULL;
 	}
-
+	DataHolder=malloc(1* sizeof(__buff));
+	
 		switch (buffer_type){
 		
 			case V4L2_PIX_FMT_RGB24:
-				rgbBuff=(intptr_t*)camera__decode_rgb( 
-				(uint8_t*)self->buffer[ self->specs.cam_buf.index ].address, 
+				DataHolder->address = camera__decode_rgb( 
+				(uint8_t*)self->buffer[ self->specs.cam_buf.index ].address, //mmap address of device
 				self->specs.cam_buf.bytesused , 
 				self->specs.fmt.fmt.pix.width, 
 				self->specs.fmt.fmt.pix.height);
+				
+				DataHolder->length = self->specs.fmt.fmt.pix.height * self->specs.fmt.fmt.pix.width * 3;
 				break;
 				
 			case V4L2_PIX_FMT_JPEG://if requested its native buffer(possibly jpeg)  !! returns struct __buff
 				if(self->specs.fmt.fmt.pix.pixelformat&V4L2_PIX_FMT_JPEG){
-					rgbBuff=(intptr_t*)self->buffer[ self->specs.cam_buf.index ].address;
+					DataHolder->address = self->buffer[ self->specs.cam_buf.index ].address;
+					DataHolder->length   = self->specs.cam_buf.bytesused;
 				}
 				break;
 			
 			default:
-				rgbBuff=(intptr_t*)camera__decode_rgb( 
-				(uint8_t*)self->buffer[ self->specs.cam_buf.index ].address, 
+				DataHolder->address = camera__decode_rgb( 
+				(uint8_t*)self->buffer[ self->specs.cam_buf.index ].address, //mmap address of device
 				self->specs.cam_buf.bytesused , 
 				self->specs.fmt.fmt.pix.width, 
 				self->specs.fmt.fmt.pix.height);
+				
+				DataHolder->length = self->specs.fmt.fmt.pix.height * self->specs.fmt.fmt.pix.width * 3;
 				break;
 		}
 		
-		//resend buffer to queue, so camera can fill it up again
+		//resend buffer to queue, so camera can fill it up again later
 		if(-1 == xioctl(self->fd, VIDIOC_QBUF, &self->specs.cam_buf)){
 				
 				perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
 				exit(errno);
 		}
-    return rgbBuff;
+    return DataHolder;
 }
 
 char *camera__imsave(CameraObject* self, const char* name){
@@ -763,7 +768,7 @@ char *camera__imsave(CameraObject* self, const char* name){
 	char* filename=calloc(129,sizeof(char));
 	
 	strcat(filename,"../images/");
-	//write_time(filename, 0 );
+	write_time(filename, 0 );
 	strcat(filename,name);
 	
 	switch(self->specs.fmt.fmt.pix.pixelformat){

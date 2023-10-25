@@ -16,7 +16,7 @@ float* gaussfilt2d(int size, float sigma){
         int range_=(size-1)/2;
         
         float *kernel;		//+1 alloc is for sum of weights of kernel
-        kernel=(float*)malloc(pow(size,2)*sizeof(float)+1);
+        kernel=(float*)malloc((pow(size,2)+1)*sizeof(float));
         
         float SUM_WEIGHTS=0;
         //center value is 1
@@ -48,7 +48,10 @@ uint8_t* gaussBlur(uint8_t *buffer,int width,int height,int fsize,float fsigma){
     kernel=gaussfilt2d(fsize,fsigma);//(float*)malloc(fsize*fsize*sizeof(float));
     
     //here we normalizing result of float* to uint8*
-    apply=normalize(conv2d(buffer,width, height, kernel, fsize)  ,width-sizeReducted, height-sizeReducted);
-	
+    float* convoled=conv2d(buffer,width, height, kernel, fsize);
+    apply=normalize(convoled, width-sizeReducted, height-sizeReducted);
+    
+    free(convoled);
+    free(kernel);
 	return apply;//return processed image
 }

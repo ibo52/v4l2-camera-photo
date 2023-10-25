@@ -18,6 +18,7 @@ float* laplacian(uint8_t *buffer,int width,int height){
 	//---SPECIFY THE KERNEL----------
 	
 	float *apply=conv2d(buffer,width, height, kernel, fsize);//processed image
+	free(kernel);
 	return apply;//return processed image
 	
 }
