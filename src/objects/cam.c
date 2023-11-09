@@ -569,9 +569,10 @@ int camera__activate(CameraObject* self){
     init_camera(self); 			//prepare camera by getting info
     get_format(self, 0);			//get default format options to frame_size(for required for set_format)
     set_format(self, self->specs.USER_FRAME_SIZE.width, self->specs.USER_FRAME_SIZE.height);		//automaticly format to default best format
-    camera__print_specs(self);
+    //camera__print_specs(self);
     init_mmap(self);	//open memory map and concatenate to buffer
 	ready_to_capture(self);		//adjust camera buffers and open streaming
+	dequeue_buff(self);			//dequeue buffer once on start for camera__capture function to functions properly
 	//init_userptr();
     return 0;
 }
@@ -718,6 +719,13 @@ static int8_t* camera__decode_rgb(unsigned char *buffer,int buffsize,int width,i
 }
 __buff* camera__capture(CameraObject* self, int buffer_type){
 	
+	//resend last used buffer to queue, so camera can fill it up again later
+		if(-1 == xioctl(self->fd, VIDIOC_QBUF, &self->specs.cam_buf)){
+				
+				perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
+				exit(errno);
+		}
+	
 	__buff* DataHolder;
 	if( dequeue_buff(self) ){//io to dequeue buffer. Queueing made here(end of this function) after image processed
 		return NULL;
@@ -754,12 +762,6 @@ __buff* camera__capture(CameraObject* self, int buffer_type){
 				break;
 		}
 		
-		//resend buffer to queue, so camera can fill it up again later
-		if(-1 == xioctl(self->fd, VIDIOC_QBUF, &self->specs.cam_buf)){
-				
-				perror(ANSI_COLOR_RED"VIDIOC_QBUF"ANSI_COLOR_RESET);
-				exit(errno);
-		}
     return DataHolder;
 }
 
@@ -798,7 +800,7 @@ char *camera__imsave(CameraObject* self, const char* name){
 	//printf("expecting %i bytes to write\n",cam_buf.bytesused);
 	do{
 		recv+=write(jpg_fd, self->buffer[ self->specs.cam_buf.index ].address, 
-		self->buffer[ self->specs.cam_buf.index ].length);
+		self->specs.cam_buf.bytesused);
 		//printf("recv:%i\n",recv);
 	}while( recv < self->specs.cam_buf.bytesused );
 
