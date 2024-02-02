@@ -3,6 +3,6 @@
 #include<gtk/gtk.h>
 #include<stdint.h>
 
-int cameraSettingsDialog__open_display_window(CameraObject* Camera);
+int cameraSettingsDialog__open_display_window(Camera* Camera);
 
 #endif

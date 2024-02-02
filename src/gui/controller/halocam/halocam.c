@@ -2,10 +2,10 @@
 *	MAIN METHOD TO RUN APPLICATION
 */
 #include<gtk/gtk.h>
-#include "cam.h"
+#include "Camera.h"
 #include "halocam__window.h"
 
-CameraObject* CameraDevice;		//global defined object, accessible by all
+Camera* CameraDevice;		//global defined object, accessible by all
 
 gpointer app_shutdown_cb(){
 

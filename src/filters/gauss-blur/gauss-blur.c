@@ -7,6 +7,7 @@
 #include "conv2d.h"
 #include "normalize.h"
 
+#include "gauss-blur.h"
 float* gaussfilt2d(int size, float sigma){
 
 		float SQUARE_SIGMA=sigma*sigma;

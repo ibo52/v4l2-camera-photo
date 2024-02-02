@@ -2,7 +2,7 @@
 #include <sys/types.h>
 #include <unistd.h>//sleep
 //#include <string.h>
-#include "cam.h"
+#include "Camera.h"
 #include "gallery.h"
 #include "filters.h"
 #include "about-dialog.h"
@@ -34,7 +34,7 @@ typedef struct __halocam_view{
 }View;
 
 static GtkBuilder	*builder;
-static CameraObject *CameraDevice;//pointer of global defined camera
+static Camera	    *CameraDevice;//pointer of global defined camera
 static View 		halocam;	  //View of main window
 
 //---INFO PAGE WİDGETS---
@@ -261,15 +261,15 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 	g_mutex_lock (&camera_access_mutex);
 	
 	if (halocam.imageBox!=NULL || halocam.imageBoxLayout!=NULL){
-		__buff* bufferStruct = camera__capture(CameraDevice, V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
+		cameraBuffer bufferStruct = camera__capture(CameraDevice, V4L2_PIX_FMT_RGB24);//NULL is also defaults to V4L2_PIX_FMT_RGB24 
 
-		if ( !bufferStruct ){
+		if ( !bufferStruct.address ){
 			drawText(cr, "Buffer is Empty", 1);
 
 		}else{
 			//1. move data to gdkpixbuff struct
 			GdkPixbuf* pixbuff=gdk_pixbuf_new_from_data (
-				  (uint8_t*)bufferStruct->address,
+				  (uint8_t*)bufferStruct.address,
 				  GDK_COLORSPACE_RGB,
 				  0,
 				  8,//int bits_per_sample=
@@ -296,8 +296,7 @@ gboolean updateImage(GtkWidget *widget, cairo_t *cr, gpointer data){
 			//last step
 			g_object_unref( pixbuff_scaled );  //free pixbuff memory
 			
-			free(bufferStruct->address);
-			free(bufferStruct);						   //free buffer
+			free(bufferStruct.address);
 			
 			gtk_widget_queue_draw_area(widget, 0,0, gtk_widget_get_allocated_width(halocam.imageBoxLayout),gtk_widget_get_allocated_height(halocam.imageBoxLayout));//send draw signal
 			
@@ -345,7 +344,7 @@ void app_activate (GApplication *app, gpointer user_data) {
 	
 	CameraDevice=user_data;
 	//gtk_init(&argc, &argv);//init gtk
-	
+	//printf("current package dir: %s\n", g_get_current_dir());
 	builder=gtk_builder_new_from_file("../resources/view/halocam.glade");
 	
 	halocam.window=GTK_WIDGET(gtk_builder_get_object(builder,"window"));

@@ -1,7 +1,7 @@
 #include<gtk/gtk.h>
 #include<stdint.h>
 #include <sys/ioctl.h>
-#include "cam.h"
+#include "Camera.h"
 #include "halocam__window.h"
 #include <string.h>
 
@@ -14,7 +14,7 @@ typedef struct __cameraSettingsDialog{
 
 static View 		cameraSettingsDialog;
 static GtkBuilder	*builder;
-static CameraObject* CameraDevice;
+static Camera* CameraDevice;
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x)) //write zero to the struct space
 
@@ -225,7 +225,7 @@ static void cameraSettingsDialog__append_cameraControls(void){
 	pango_attr_list_unref(Attrs);
 }
 
-int cameraSettingsDialog__open_display_window(CameraObject* Camera){
+int cameraSettingsDialog__open_display_window(Camera* Camera){
 	CameraDevice=Camera;
 	
 	if (cameraSettingsDialog.window!=NULL) {

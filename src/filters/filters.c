@@ -4,14 +4,14 @@
 #include<string.h>		//strcat
 #include <jpeglib.h>	//to decode jpg image buffer
 #include<time.h>		//timestamp for imagenames
-
 //---USER DEFINED HEADER FILES---
-#include "filters.h"//function definitions of this file
 #include "laplace.h"//laplace definitions
 #include "gauss-blur.h"//gaussian blurring definitions
 #include "conv2d.h"//convolve definitions
 #include "normalize.h"//convolve definitions
 #include "pad.h"//convolve definitions
+
+#include "filters.h"//function definitions of this file
 
 //--------------------------------------------------------
 int write_time(char *buff,int buffsize){

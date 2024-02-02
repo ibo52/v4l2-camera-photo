@@ -7,6 +7,8 @@
 #include<pthread.h>		//timestamp for imagenames
 #include "utils.h"
 
+#include "pad.h"
+
 typedef struct padThreadArguments{
 	uint8_t *buffer;
 	uint8_t *padded;

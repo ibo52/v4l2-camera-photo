@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "normalize.h"
+
 uint8_t *normalize(float *buffer,int width,int height){
 	//function normalizes image to 0-255 range
 	float max=buffer[0];

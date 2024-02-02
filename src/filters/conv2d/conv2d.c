@@ -7,6 +7,8 @@
 #include <pthread.h>
 #include "utils.h"
 
+#include "conv2d.h" 
+
 typedef struct conv2dThreadArguments{
 	uint8_t *buffer;	//pointer to read original buffer
 	float *processed;	//pointer to write new buffer

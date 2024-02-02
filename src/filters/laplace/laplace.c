@@ -1,8 +1,9 @@
 #include <stdint.h>//uint8_t
 #include <unistd.h>//provides access to the POSIX operating system API.
 #include <stdlib.h>
-
 #include "conv2d.h"
+
+#include "laplace.h"
 
 float* laplacian(uint8_t *buffer,int width,int height){
 	//this function detects edges on image buffer
